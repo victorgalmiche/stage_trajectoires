@@ -1,41 +1,61 @@
-# We dispose of a dataframe respecting the semiMarkov library canvas
-### LOG-LIKELIHOOD (DECOMPOSEE) ###
-log_likelihood_alpha <- function(df, alpha){
-  init_states <- tapply(df$state.h, df$id, head, 1)
-  sum(log(alpha[init_states]))
+# We dispose of a dataframe with columns id, state, time
+# id correspond to an individual
+# the rows attached to an id are ordered in the order of the visited states
+
+
+### LOG-LIKELIHOOD
+# Part of the log-likelihood depending on alpha
+log_likelihood_alpha <- function(df, alpha) {
+  # We compute the initial states of each process
+  init_states <- tapply(df$state, df$id, head, 1)
+  
+  # And then sum the corresponding log(alpha)
+  ll <- sum(log(alpha[init_states]))
+  if (!is.finite(ll)) warning("Log-likelihood is not finite, check alpha for zero entries")
+  ll
 }
 
-
-log_likelihood_P <- function(df, P){
-  P_safe <- pmax(P, 1e-10) # To avoid log(0)
-  sum(log(P_safe[cbind(df$state.h, df$state.j)]))
+# Part of the log-likelihood depending on P
+log_likelihood_P <- function(df, P) {
+  # For each row that has a successor in the same chain
+  same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
+  
+  # Computing the transitions
+  state_i <- df$state[same_chain]
+  state_j <- df$state[which(same_chain) + 1]
+  
+  # Summing the corresponding log(P_ij) 
+  sum(log(P[cbind(state_i, state_j)]))
 }
 
-
+# Part of the log-likelihood depending on omega
 log_likelihood_omega <- function(df, omega){
   sum(dgamma(df$time,
-             shape=omega[df$state.h, 'a'],
-             rate=omega[df$state.h, 'lambda'],
+             shape=omega[df$state, 'shape'],
+             rate=omega[df$state.h, 'rate'],
              log=TRUE))
 }
 
-### MLE for alpha ###
+### MLE
+# MLE for alpha
 mle_alpha <- function(df, D) {
-  init_states  <- tapply(df$state.h, df$id, head, 1) # Extraction du premier état de chaque chaîne
-  counts <- tabulate(init_states, nbins = D) # Nombre pour chaque état
-  counts/sum(counts) # Renormalize
+  init_states <- tapply(df$state, df$id, head, 1) 
+  counts <- tabulate(init_states, nbins = D) # Number for each state
+  counts/sum(counts) # Renormalize to have sum=1
 }
 
-
-### MLE pour P matrice de transition ###
+# MLE for P
 mle_P <- function(df, D) {
-  # Count observed transitions i -> j
-  counts <- matrix(0, nrow = D, ncol = D)
-  idx <- cbind(df$state.h, df$state.j)
-  counts <- tabulate(
-    (df$state.h - 1) * D + df$state.j, 
-    nbins = D * D
-  ) |> matrix(nrow = D, ncol = D, byrow=TRUE)
+  # Count transitions
+  same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
+  
+  state_i <- df$state[same_chain]
+  state_j <- df$state[which(same_chain) + 1]
+  
+  # Encoding in a matrix 
+  counts <- matrix(
+    tabulate((state_i - 1) * D + state_j, nbins = D * D),
+    nrow = D, byrow=TRUE)
   
   # Force diagonal to 0 (semi-Markov: no self-transitions)
   diag(counts) <- 0
@@ -47,44 +67,40 @@ mle_P <- function(df, D) {
 }
 
 
-### MLE pour omega ###
+# MLE for omega - using Nelder-Mead optimization
 mle_omega_nm <- function(df, D){
-  omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c("a", "lambda")))
-  for (i in 1:D){
-    times_i <- df$time[df$state.h==i]
+  # Creating a matrix object to store the result - initialized w/ ones
+  omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'rate')))
+  
+  # For each state s
+  for (s in 1:D){
+    # Extracting the corresponding sojourn times
+    times_s <- df$time[df$state==s]
     
-    if (length(times_i) < 2) {
-      warning(paste('State', i, 'has less than 2 valid observations'))
+    # If less than 2 observations, impossible to estimate
+    if (length(times_s) < 2) {
+      warning(paste('State', s, 'has less than 2 valid observations'))
       next
     }
     
     # Objective function: negative log likelihood
     nll <- function(pars){
       if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
-      ll <- sum(dgamma(times_i, shape=pars[1], rate=pars[2], log=TRUE))
+      ll <- sum(dgamma(times_s, shape=pars[1], rate=pars[2], log=TRUE))
       if (!is.finite(ll)) return(1e10)
       -ll
     }
     
     # Starting values using method of moments
-    mean_x <- mean(times_i)
-    var_x <- var(times_i)
-    
-    # Handle invalid variance
-    if (var_x <= 0 || !is.finite(var_x)) {
-      var_x <- (mean_x / 4)^2
-    }
+    mean_x <- mean(times_s)
+    var_x <- var(times_s)
     
     shape_start <- mean_x^2 / var_x
     rate_start <- mean_x / var_x
     
-    # Bound starting values to reasonable range
-    shape_start <- pmax(0.01, pmin(shape_start, 500))
-    rate_start <- pmax(0.001, pmin(rate_start, 500))
-    
     # Test starting values
     if (!is.finite(nll(c(shape_start, rate_start)))) {
-      warning(paste('State', i, 'invalid starting values'))
+      warning(paste('State', s, 'invalid starting values'))
       next
     }
     
@@ -94,13 +110,16 @@ mle_omega_nm <- function(df, D){
             method='Nelder-Mead',
             control=list(maxit=5000)),
       error = function(e) {
-        warning(paste('State', i, 'optimization error'))
+        warning(paste('State', s, 'optimization error'))
         list(par=c(shape_start, rate_start), convergence=1)
       }
     )
     
-    omega[i, 'a'] <- result$par[1]
-    omega[i, 'lambda'] <- result$par[2]
+    if (result$convergence != 0)
+      warning(paste('State', s, 'did not converge'))
+    
+    omega[i, 'shape'] <- result$par[1]
+    omega[i, 'rate'] <- result$par[2]
   }
   omega
 }
