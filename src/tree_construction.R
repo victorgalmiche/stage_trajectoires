@@ -1,49 +1,36 @@
-# =============================================================================
-# ARBRE DE RÉGRESSION POUR TRAJECTOIRES DE VIE
-# Critère de split : p-value d'un two-sample test (fonction personnalisable)
-# =============================================================================
-# STRUCTURE DES DONNÉES ATTENDUE :
-#   - trajectories : liste ou data.frame, une ligne = une trajectoire
-#   - covariates   : data.frame, une ligne = un individu, colonnes = covariables
-#   - Les deux objets doivent avoir le même nombre de lignes (même ordre)
-# =============================================================================
+### REGRESSION TREE CONSTRUCTION
+# Split criterion: p-value of the two-sample test
 
-# -----------------------------------------------------------------------------
-# 1. CALCUL p-value
-# -----------------------------------------------------------------------------
 
-source('src/two_samples_test.R')
+# Data structure:
+# - trajectories: data.frame, each row is a trajectory
+# - covariates: data.frame, each row are the covariate for an individual
 
-traj_to_semimarkov <- function(trajectories, state_map = NULL) {
+
+# Conversion function from trajectories to dataframe format used by two_sample_test.R
+traj_to_df <- function(trajectories) {
+  res <- list()
   
-  if (is.null(state_map)) {
-    all_states <- sort(unique(as.character(unlist(trajectories))))
-    state_map  <- setNames(seq_along(all_states), all_states)
+  for (i in seq_len(nrow(trajectories))) {
+    states <- as.integer(trajectories[i, ]) # Extracting the trajectory of i
+    changes <- c(TRUE, diff(states) != 0) # Breakpoint detection
+    episodes <- cumsum(changes) # Episode numbering
+    durations <- table(episodes) # Duration of each episode
+    episode_states <- states[changes] # Corresponding state
+    
+    # Construction of the resulting dataframe
+    res[[i]] <- data.frame(
+      id = i,
+      state = episode_states,
+      time = as.integer(durations)
+    )
   }
   
-  results <- lapply(seq_len(nrow(trajectories)), function(i) {
-    states <- state_map[as.character(unlist(trajectories[i, ]))]
-    
-    rle_out <- rle(states)
-    lengths <- rle_out$lengths
-    values  <- rle_out$values
-    
-    n_transitions <- length(values) - 1
-    if (n_transitions == 0) return(NULL)
-    
-    data.frame(
-      id      = i,
-      state.h = rle_out$values[-length(rle_out$values)],
-      state.j = rle_out$values[-1],
-      time    = rle_out$lengths[-length(rle_out$lengths)],
-      stringsAsFactors = FALSE
-    )
-  })
-  
-  df <- do.call(rbind, results)
-  attr(df, "state_map") <- state_map
-  df
+  do.call(rbind, res)
 }
+
+
+
 
 # -----------------------------------------------------------------------------
 # 2. FONCTIONS UTILITAIRES
@@ -293,21 +280,21 @@ get_leaves <- function(node, leaves = list()) {
 # EXEMPLE D'UTILISATION
 # =============================================================================
 
+source('src/two_samples_test.R')
+library(TraMineR)
 data(mvad)
 trajectories <- mvad[, 17:86]
 covariates <- mvad[, 1:14]
-traj_df <- traj_to_semimarkov(trajectories)
+traj_df <- traj_to_df(trajectories)
 D <- 6
-# Calculer le state_map une fois sur toutes les données
-all_states <- sort(unique(as.character(unlist(trajectories))))
-state_map  <- setNames(seq_along(all_states), all_states)
+
 
 # Le passer au wrapper
-make_test_fn <- function(test_fn, state_map) {
+make_test_fn <- function(test_fn) {
   function(traj_group1, traj_group2) {
-    sm1 <- traj_to_semimarkov(traj_group1, state_map)
-    sm2 <- traj_to_semimarkov(traj_group2, state_map)
-    test_fn(sm1, sm2, D)
+    df1 <- traj_to_df(traj_group1)
+    df2 <- traj_to_df(traj_group2)
+    test_fn(df1, df2, D)
   }
 }
 
@@ -316,7 +303,7 @@ tree <- build_tree(
   trajectories  = trajectories,
   covariates    = covariates,
   indices       = 1:712,
-  test_fn       = make_test_fn(likelihood_ratio_test, state_map),
+  test_fn       = make_test_fn(likelihood_ratio_test),
   alpha         = 0.05,
   max_depth     = 4,
   min_node_size = 15
