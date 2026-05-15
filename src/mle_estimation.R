@@ -31,11 +31,21 @@ log_likelihood_P <- function(df, P) {
 }
 
 # Part of the log-likelihood depending on omega
-log_likelihood_omega <- function(df, omega){
-  sum(dgamma(df$time,
-             shape=omega[df$state, 'shape'],
-             rate=omega[df$state, 'rate'],
-             log=TRUE))
+log_likelihood_omega <- function(df, omega, law_sojourn='gamma'){
+  switch(law_sojourn, 
+         gamma = sum(dgamma(df$time,
+                            shape=omega[df$state, 'shape'],
+                            rate=omega[df$state, 'rate'],
+                            log=TRUE)),
+         weibull = sum(dweibull(df$time,
+                                shape=omega[df$state, 'shape'],
+                                scale=omega[df$state, 'scale'],
+                                log=TRUE)),
+         exponential = sum(dexp(df$time, 
+                                rate=omega[df$state, 'rate'],
+                                log=TRUE))
+  )
+  
 }
 
 ### MLE
@@ -70,7 +80,7 @@ mle_P <- function(df, D) {
 
 
 # MLE for omega - using Nelder-Mead optimization
-mle_omega_nm <- function(df, D){
+mle_omega_gamma <- function(df, D){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'rate')))
   
@@ -131,16 +141,93 @@ mle_omega_nm <- function(df, D){
   omega
 }
 
+mle_omega_weibull <- function(df, D){
+  # Creating a matrix object to store the result - initialized w/ ones
+  omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'scale')))
+  
+  # For each state s
+  for (s in 1:D){
+    # Extracting the corresponding sojourn times
+    times_s <- df$time[df$state==s]
+    
+    # If less than 2 observations, impossible to estimate
+    if (length(times_s) < 2) {
+      warning(paste('State', s, 'has less than 2 valid observations'))
+      next
+    }
+    
+    # Objective function: negative log likelihood
+    nll <- function(pars){
+      if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
+      ll <- sum(dweibull(times_s, shape=pars[1], scale=pars[2], log=TRUE))
+      if (!is.finite(ll)) return(1e10)
+      -ll
+    }
+    
+    # Starting values - no easy form w/ method of moments
+    shape_start <- 1
+    scale_start <- 1
+    
+    # Test starting values
+    if (!is.finite(nll(c(shape_start, scale_start)))) {
+      warning(paste('State', s, 'invalid starting values'))
+      next
+    }
+    
+    # Optimize w/ Nelder-Mead
+    result <- tryCatch(
+      optim(c(shape_start, scale_start), nll, 
+            method='Nelder-Mead',
+            control=list(maxit=5000)),
+      error = function(e) {
+        warning(paste('State', s, 'optimization error'))
+        list(par=c(shape_start, scale_start), convergence=1)
+      }
+    )
+    
+    if (result$convergence != 0)
+      warning(paste('State', s, 'did not converge'))
+    
+    omega[s, 'shape'] <- result$par[1]
+    omega[s, 'scale'] <- result$par[2]
+  }
+  omega
+}
+
+mle_omega_exponential <- function(df, D){
+  # Creating a matrix object to store the result - initialized w/ ones
+  omega <- matrix(1, nrow=D, ncol=1, dimnames=list(1:D, c('rate')))
+  
+  for (s in 1:D){
+    # Extracting the corresponding sojourn times
+    times_s <- df$time[df$state==s]
+    
+    # If less than 2 observations, impossible to estimate
+    if (length(times_s) < 2) {
+      warning(paste('State', s, 'has less than 2 valid observations'))
+      next
+    }
+    
+    # MLE for exponential distribution
+    omega[s, 'rate'] <- length(times_s)/sum(times_s)
+  }
+  omega
+}
+
 ### MAXIMUM LIKELIHOOD ESTIMATION ###
-mle_fit <- function(df, D){
+mle_fit <- function(df, D, law_sojourn='gamma'){
   alpha_hat <- mle_alpha(df, D)
   ll_alpha <- log_likelihood_alpha(df, alpha_hat)
   
   P_hat <- mle_P(df, D)
   ll_P <- log_likelihood_P(df, P_hat)
   
-  omega_hat <- mle_omega_nm(df, D)
-  ll_omega <- log_likelihood_omega(df, omega_hat)
+  omega_hat <- switch(law_sojourn, 
+                      gamma = mle_omega_gamma(df, D),
+                      weibull = mle_omega_weibull(df, D), 
+                      exponential = mle_omega_exponential(df, D)
+  )
+  ll_omega <- log_likelihood_omega(df, omega_hat, law_sojourn)
   
   theta_hat <- list(alpha=alpha_hat, P=P_hat, omega=omega_hat)
   ll <- ll_alpha + ll_P + ll_omega
