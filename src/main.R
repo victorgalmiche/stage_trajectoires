@@ -4,7 +4,7 @@ library(foreach)
 source('src/synthesis_data_generation.R')
 source('src/two_samples_test.R')
 
-D <- 10; n1 <- 30; n2 <- 30; M <- 5; nb_datasets <- 500
+D <- 4; n1 <- 30; n2 <- 30; M <- 5; nb_datasets <- 500
 
 cl <- makeCluster(detectCores() - 1)
 registerDoParallel(cl)
@@ -16,14 +16,14 @@ results <- foreach(
               "likelihood_ratio_test", "permutation_test")
 ) %dopar% {  
   
-  theta <- generate_theta(D, 'gamma')
-  df <- generate_dataset_H0(theta, 'gamma', n1, n2, M)
+  theta <- generate_theta(D, 'weibull')
+  df <- generate_dataset_H0(theta, 'weibull', n1, n2, M)
   
   df1 <- subset(df, id<=n1)
   df2 <- subset(df, id>n1)
   
-  p_asymp  <- likelihood_ratio_test(df1, df2, D)
-  p_permutation <- permutation_test(df1, df2, D)
+  p_asymp  <- likelihood_ratio_test(df1, df2, D, 'weibull')
+  p_permutation <- permutation_test(df1, df2, D, 'weibull')
   
   c(p_asymp=p_asymp, p_permutation=p_permutation)
 }
