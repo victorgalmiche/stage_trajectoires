@@ -56,17 +56,18 @@ find_best_split <- function(df, covariates, min_leaf, pvalue_algo) {
 # Building the tree recursively 
 build_tree <- function(df, covariates, pvalue_algo, min_obs = 20, min_leaf = 5,
                        alpha = 0.05, max_depth = 5, depth = 0) {
-  pop_size <- length(unique(df$id))
+  population <- unique(df$id)
+  pop_size <- length(population)
   
   # Stopping criterion
   if (depth >= max_depth || pop_size < min_obs)
-    return(list(type = "leaf", n = pop_size))
+    return(list(type = "leaf", population = population, n = pop_size))
   
   best <- find_best_split(df, covariates, min_leaf, pvalue_algo)
   
   # No significant split
   if (is.null(best$var) || best$pval >= alpha)
-    return(list(type = "leaf", n = pop_size))
+    return(list(type = "leaf", population = population, n = pop_size))
   
   # Split and recursively construct the subtree
   left_ids <- which(covariates[[best$var]] == best$left_level)
@@ -80,6 +81,7 @@ build_tree <- function(df, covariates, pvalue_algo, min_obs = 20, min_leaf = 5,
     left_level = best$left_level,
     right_level = best$right_level,
     pval = best$pval,
+    population = population,
     n = pop_size,
     left = build_tree(df_left, covariates, pvalue_algo, min_obs, min_leaf, alpha, max_depth, depth + 1),
     right = build_tree(df_right, covariates, pvalue_algo, min_obs, min_leaf, alpha, max_depth, depth + 1)
