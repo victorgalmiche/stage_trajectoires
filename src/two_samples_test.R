@@ -68,7 +68,7 @@ permutation_test <- function(df1, df2, D, law_sojourn='gamma', R=100) {
   T_star <- numeric(R)
   
   for (r in 1:R) {
-    sample1_id   <- sample(n1 + n2, n1)
+    sample1_id   <- sample(unique(df$id), n1)
     df1_permuted <- subset(df, id %in% sample1_id)
     df2_permuted <- subset(df, !(id %in% sample1_id))
     

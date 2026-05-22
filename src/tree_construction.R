@@ -111,7 +111,8 @@ D <- 6
 
 # Function for p_value computation
 alg <- function(df1, df2){
-  likelihood_ratio_test(df1, df2, D, 'exponential')
+  # likelihood_ratio_test(df1, df2, D, 'exponential')
+  # permutation_test(df1, df2, D, 'exponential')
 }
 
 # Tree construction
