@@ -30,27 +30,83 @@ traj_to_df <- function(trajectories) {
 
 # Find the best split among the different covariates
 # We suppose that each covariates are binary categorical (2 modalities)
-find_best_split <- function(df, covariates, min_leaf, pvalue_algo) {
-  best <- list(pval = 1, var = NULL, left_level = NULL)
+best_split_categorical <- function(df, covariate, min_leaf, pvalue_algo) {
+  best <- list(pval = 1, var = NULL, left_level = NULL, right_level = NULL)
   
-  for (var in names(covariates)) {
-    x <- covariates[[var]]
-    levs <- levels(x)   
-    left_ids <- which(x==levs[1])
-    
-    df_left <- subset(df, id %in% left_ids)
-    df_right <- subset(df, !(id %in% left_ids))
-    
-    if (length(unique(df_left$id)) < min_leaf || 
-        length(unique(df_right$id)) < min_leaf) next 
+  levs <- levels(covariate) # For now, a max of 2 levels 
+  left_ids <- which(x==levs[1])
+  
+  df_left <- subset(df, id %in% left_ids)
+  df_right <- subset(df, !(id %in% left_ids))
+  
+  if (length(unique(df_left$id))>min_leaf &&
+      length(unique(df_right$id))>min_leaf) {
     
     pval <- pvalue_algo(df_left, df_right)
-    
     if (pval < best$pval)
-      best <- list(pval = pval, var = var, left_level = levs[1], right_level = levs[2])
+      best <- list(pval = pval, 
+                   var = var, 
+                   left_level = levs[1], 
+                   right_level = levs[2])
   }
   best
 }
+
+# Find the best split for a numeric variable
+best_split_numeric <- function(df, covariate, min_leaf, pvalue_algo) {
+  best <- list(pval=1, threshold=NULL)
+  
+  ids <- unique(df$id) # Selecting only the ids of the individuals in the current dataframe
+  sorted_values <- sort(unique(covariate[ids])) # Sorting the values taken by the covariate
+  n_values <- length(sorted_values) # Counting the number of different values
+  
+  if (n_values > 1){
+    # The thresholds are the mean of successive values
+    thresholds <- (sorted_values[-n_values] + sorted_values[-1]) / 2
+    
+    # Iterating through the different thresholds
+    for (thresh in thresholds){
+      left_ids <- which(covariate < thresh)
+      
+      df_left <- subset(df, id %in% left_ids)
+      df_right <- subset(df, !(id %in% left_ids))
+      
+      # If not enough values, don't take this threshold
+      if (length(unique(df_left$id)) < min_leaf || 
+          length(unique(df_right$id)) < min_leaf) next
+      
+      pval <- pvalue_algo(df_left, df_right)
+      if (pval < best$pval){
+        best <- list(pval=pval, threshold=thresh)
+      }
+    }
+  }
+  best
+}
+
+find_best_split <- function(df, covariates, min_leaf, pvalue_algo){
+  best <- list(pval=1)
+  for (var in names(covariates)){
+    covariate <- covariates[[var]] # Extracting the column of the covariate
+    
+    # Selecting the good type of covariate
+    if (is.numeric(covariate) || is.integer(covariate)){
+      best_split <- best_split_numeric(df, covariate, min_leaf, pvalue_algo)
+      split_type <- 'numeric'
+    } else {
+      best_split <- best_split_categorical(df, covariate, min_leaf, pvalue_algo)
+      split_type <- 'categorical'
+    }
+    
+    # Comparing w/ the best curent p-value
+    if(best_split$pval <- best$pval){
+      best <- best_split
+      best$var <- var
+      best$type <- split_type
+    }
+  }
+  best
+} 
 
 
 # Building the tree recursively 
@@ -111,7 +167,7 @@ D <- 6
 
 # Function for p_value computation
 alg <- function(df1, df2){
-  # likelihood_ratio_test(df1, df2, D, 'exponential')
+  likelihood_ratio_test(df1, df2, D, 'gamma')
   # permutation_test(df1, df2, D, 'exponential')
 }
 
