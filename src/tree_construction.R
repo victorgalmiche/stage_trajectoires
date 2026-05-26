@@ -4,6 +4,7 @@
 # Data structure:
 # - trajectories: data.frame, each row is a trajectory
 # - covariates: data.frame, each row are the covariate for an individual
+# For now, we don't need an id column, we give id as the row number for each individual
 
 
 # Conversion function from trajectories to dataframe format used by two_sample_test.R
@@ -34,7 +35,7 @@ best_split_categorical <- function(df, covariate, min_leaf, pvalue_algo) {
   best <- list(pval = 1, var = NULL, left_level = NULL, right_level = NULL)
   
   levs <- levels(covariate) # For now, a max of 2 levels 
-  left_ids <- which(x==levs[1])
+  left_ids <- which(covariate==levs[1])
   
   df_left <- subset(df, id %in% left_ids)
   df_right <- subset(df, !(id %in% left_ids))
@@ -126,19 +127,23 @@ build_tree <- function(df, covariates, pvalue_algo, min_obs = 20, min_leaf = 5,
     return(list(type = "leaf", population = population, n = pop_size))
   
   # Split and recursively construct the subtree
-  left_ids <- which(covariates[[best$var]] == best$left_level)
-  right_ids <- which(covariates[[best$var]] == best$right_level)
+  left_ids <- switch(best$type, 
+                     categorical= (which(covariates[[best$var]] == 
+                                           best$left_level)),
+                     numeric = (which(covariates[[best$var]] < best$threshold)))
+  right_ids <- switch(best$type, 
+                      categorical= (which(covariates[[best$var]] == 
+                                            best$right_level)),
+                      numeric = (which(covariates[[best$var]] >= best$threshold)))
+  
   df_left <- subset(df, id %in% left_ids)
   df_right <- subset(df, id %in% right_ids)
   
   list(
     type = "node",
-    var = best$var,
-    left_level = best$left_level,
-    right_level = best$right_level,
-    pval = best$pval,
     population = population,
     n = pop_size,
+    split = best,
     left = build_tree(df_left, covariates, pvalue_algo, min_obs, min_leaf, alpha, max_depth, depth + 1),
     right = build_tree(df_right, covariates, pvalue_algo, min_obs, min_leaf, alpha, max_depth, depth + 1)
   )
@@ -151,28 +156,36 @@ print_tree <- function(node, indent = 0) {
     cat(pad, "└─ Leaf:  (n =", node$n, ")\n")
   } else {
     cat(pad, "├─ [", node$var, "] p =", formatC(node$pval, digits = 3, format = "e"), "\n")
-    cat(pad, "  ├─ ==", node$left_level,  "\n"); print_tree(node$left,  indent + 2)
-    cat(pad, "  └─ ==", node$right_level, "\n"); print_tree(node$right, indent + 2)
+    cat(pad, "  ├─ "); print_tree(node$left,  indent + 2)
+    cat(pad, "  └─ "); print_tree(node$right, indent + 2)
   }
 }
 
 # Use example w/ mvad data
 source('src/two_samples_test.R')
 library(TraMineR)
-data(mvad)
-trajectories <- mvad[, 17:86]
-covariates <- mvad[, 3:14]
+#data(mvad)
+#trajectories <- mvad[, 17:86]
+#covariates <- mvad[, 3:14]
 traj_df <- traj_to_df(trajectories)
-D <- 6
+
+
+data(biofam)
+trajectories <- biofam[, 10:25]
+traj_df <- traj_to_df(trajectories) 
+traj_df$state <- traj_df$state + 1 # to have state number beginning at 1
+covariates <- biofam[, 2:9]
+
+D <- 8
 
 # Function for p_value computation
 alg <- function(df1, df2){
-  likelihood_ratio_test(df1, df2, D, 'gamma')
+  likelihood_ratio_test(df1, df2, D, 'exponential')
   # permutation_test(df1, df2, D, 'exponential')
 }
 
 # Tree construction
-tree <- build_tree(traj_df, covariates, alg)
+tree <- build_tree(traj_df, covariates[,1:2], alg, alpha=1.1)
 
 # Affichage
 cat("=== ARBRE DE TRAJECTOIRES ===\n\n")
