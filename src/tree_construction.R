@@ -53,6 +53,52 @@ best_split_categorical <- function(df, covariate, min_leaf, pvalue_algo) {
   best
 }
 
+
+# Helper function to generate bipartitions 
+generate_bipartitions <- function(n_levels) {
+  parts <- list()
+  for (k in 1:(2^(n_levels-1) - 1)) {
+    bits <- as.integer(intToBits(k))[1:n_levels]
+    left  <- which(bits==1)
+    right <- which(bits==0)
+    parts[[length(parts) + 1]] <- list(left = left, right = right)
+  }
+  parts
+}
+
+best_split_categorical_v2 <- function(df, covariate, min_leaf, pvalue_algo) {
+  best <- list(pval=1, left_levels=NULL, right_levels=NULL)
+  
+  ids <- unique(df$id) # Selecting only the ids of the individuals in the current dataframe
+  levs <- levels(droplevels(covariate[ids])) # And the corresponding possible levels
+  n_levels <- length(levs) # Counting the number of different levels
+  
+  if (n_levels > 1){
+    parts <- generate_bipartitions(n_levels)
+    
+    # Iterating through the different partitions
+    for (partition in parts){
+      left_ids <- which(covariate %in% levs[partition$left])
+      
+      df_left <- subset(df, id %in% left_ids)
+      df_right <- subset(df, !(id %in% left_ids))
+      
+      # If not enough values, don't take this threshold
+      if (length(unique(df_left$id)) < min_leaf || 
+          length(unique(df_right$id)) < min_leaf) next
+      
+      pval <- pvalue_algo(df_left, df_right)
+      if (pval < best$pval){
+        best <- list(pval=pval, 
+                     left_levels=levs[partition$left], 
+                     right_levels=levs[partition$right])
+      }
+    }
+  }
+  best
+  
+}
+
 # Find the best split for a numeric variable
 best_split_numeric <- function(df, covariate, min_leaf, pvalue_algo) {
   best <- list(pval=1, threshold=NULL)
@@ -95,12 +141,12 @@ find_best_split <- function(df, covariates, min_leaf, pvalue_algo){
       best_split <- best_split_numeric(df, covariate, min_leaf, pvalue_algo)
       split_type <- 'numeric'
     } else {
-      best_split <- best_split_categorical(df, covariate, min_leaf, pvalue_algo)
+      best_split <- best_split_categorical_v2(df, covariate, min_leaf, pvalue_algo)
       split_type <- 'categorical'
     }
     
     # Comparing w/ the best curent p-value
-    if(best_split$pval <- best$pval){
+    if(best_split$pval < best$pval){
       best <- best_split
       best$var <- var
       best$type <- split_type
@@ -128,12 +174,12 @@ build_tree <- function(df, covariates, pvalue_algo, min_obs = 20, min_leaf = 5,
   
   # Split and recursively construct the subtree
   left_ids <- switch(best$type, 
-                     categorical= (which(covariates[[best$var]] == 
-                                           best$left_level)),
+                     categorical= (which(covariates[[best$var]] %in% 
+                                           best$left_levels)),
                      numeric = (which(covariates[[best$var]] < best$threshold)))
   right_ids <- switch(best$type, 
-                      categorical= (which(covariates[[best$var]] == 
-                                            best$right_level)),
+                      categorical= (which(covariates[[best$var]] %in% 
+                                            best$right_levels)),
                       numeric = (which(covariates[[best$var]] >= best$threshold)))
   
   df_left <- subset(df, id %in% left_ids)
