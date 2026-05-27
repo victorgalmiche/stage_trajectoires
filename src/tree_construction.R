@@ -210,19 +210,28 @@ print_tree <- function(node, indent = 0) {
 # Use example w/ mvad data
 source('src/two_samples_test.R')
 library(TraMineR)
-#data(mvad)
-#trajectories <- mvad[, 17:86]
-#covariates <- mvad[, 3:14]
+
+# mvad
+data(mvad)
+trajectories <- mvad[, 17:86]
+covariates <- mvad[, 3:14]
 traj_df <- traj_to_df(trajectories)
 
-
+# biofam
 data(biofam)
 trajectories <- biofam[, 10:25]
 traj_df <- traj_to_df(trajectories) 
 traj_df$state <- traj_df$state + 1 # to have state number beginning at 1
-covariates <- biofam[, 2:9]
+covariates <- biofam[, 5:9]
 
-D <- 8
+# actcal
+data(actcal)
+trajectories <- actcal[, 13:24]
+traj_df <- traj_to_df(trajectories)
+traj_df$state <- traj_df$state - 5 # state number beginning at 1
+covariates <- actcal[, 2:12]
+
+D <- 6
 
 # Function for p_value computation
 alg <- function(df1, df2){
@@ -231,7 +240,7 @@ alg <- function(df1, df2){
 }
 
 # Tree construction
-tree <- build_tree(traj_df, covariates[,1:2], alg, alpha=1.1)
+tree <- build_tree(traj_df, covariates, alg)
 
 # Affichage
 cat("=== ARBRE DE TRAJECTOIRES ===\n\n")
