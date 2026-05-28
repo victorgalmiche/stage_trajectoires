@@ -2,14 +2,14 @@ source('src/synthesis_data_generation.R')
 source('src/mle_estimation.R')
 
 # Classical LR test (also called chi2)
-likelihood_ratio_test <- function(df1, df2, D, law_sojourn='gamma'){
+likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'){
   # Combining the two groups
   df <- rbind(df1, df2)
   
   # Computing the different estimation
-  global_est <- mle_fit(df, D, law_sojourn)
-  est1 <- mle_fit(df1, D, law_sojourn)
-  est2 <- mle_fit(df2, D, law_sojourn)
+  global_est <- mle_fit(df, D, weights, law_sojourn)
+  est1 <- mle_fit(df1, D, weights, law_sojourn)
+  est2 <- mle_fit(df2, D, weights, law_sojourn)
   
   # And the lambda statistic
   lambda <- 2*(est1$log_likelihood + 
@@ -28,12 +28,12 @@ likelihood_ratio_test <- function(df1, df2, D, law_sojourn='gamma'){
 }
 
 # Parametric bootstrap test
-parametric_bootstrap <- function(df1, df2, D, law_sojourn='gamma', R=100) {
+parametric_bootstrap <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100) {
   df <- rbind(df1, df2)
   
-  global_est <- mle_fit(df, D, law_sojourn)
-  est1 <- mle_fit(df1, D, law_sojourn)
-  est2 <- mle_fit(df2, D, law_sojourn)
+  global_est <- mle_fit(df, D, weights, law_sojourn)
+  est1 <- mle_fit(df1, D, weights, law_sojourn)
+  est2 <- mle_fit(df2, D, weights, law_sojourn)
   
   Tl <- global_est$log_likelihood -est1$log_likelihood - est2$log_likelihood
   theta_hat <- global_est$estimator
@@ -44,9 +44,9 @@ parametric_bootstrap <- function(df1, df2, D, law_sojourn='gamma', R=100) {
     df1_bootstrap <- subset(df_bootstrap, id<=n1)
     df2_bootstrap <- subset(df_bootstrap, id>n1)
     
-    global_est <- mle_fit(df_bootstrap, D, law_sojour)
-    est1 <- mle_fit(df1_bootstrap, D, law_sojourn)
-    est2 <- mle_fit(df2_bootstrap, D, law_sojourn)
+    global_est <- mle_fit(df_bootstrap, D, weights, law_sojourn)
+    est1 <- mle_fit(df1_bootstrap, D, weights, law_sojourn)
+    est2 <- mle_fit(df2_bootstrap, D, weights, law_sojourn)
     
     T_star[r] <- global_est$log_likelihood -est1$log_likelihood - est2$log_likelihood
   }
@@ -55,14 +55,14 @@ parametric_bootstrap <- function(df1, df2, D, law_sojourn='gamma', R=100) {
 }
 
 # Permutation test
-permutation_test <- function(df1, df2, D, law_sojourn='gamma', R=100) {
+permutation_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100) {
   df <- rbind(df1, df2)
   n1 <- length(unique(df1$id))
   n2 <- length(unique(df2$id))
   
-  global_est <- mle_fit(df, D, law_sojourn)
-  est1 <- mle_fit(df1, D, law_sojourn)
-  est2 <- mle_fit(df2, D, law_sojourn)
+  global_est <- mle_fit(df, D, weights, law_sojourn)
+  est1 <- mle_fit(df1, D, weights, law_sojourn)
+  est2 <- mle_fit(df2, D, weights, law_sojourn)
   
   Tl <- global_est$log_likelihood - est1$log_likelihood - est2$log_likelihood
   T_star <- numeric(R)
@@ -72,8 +72,8 @@ permutation_test <- function(df1, df2, D, law_sojourn='gamma', R=100) {
     df1_permuted <- subset(df, id %in% sample1_id)
     df2_permuted <- subset(df, !(id %in% sample1_id))
     
-    est1 <- mle_fit(df1_permuted, D, law_sojourn)
-    est2 <- mle_fit(df2_permuted, D, law_sojourn)
+    est1 <- mle_fit(df1_permuted, D, weights, law_sojourn)
+    est2 <- mle_fit(df2_permuted, D, weights, law_sojourn)
     
     T_star[r] <- global_est$log_likelihood - est1$log_likelihood - est2$log_likelihood
   }

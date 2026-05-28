@@ -22,8 +22,8 @@ results <- foreach(
   df1 <- subset(df, id<=n1)
   df2 <- subset(df, id>n1)
   
-  p_asymp  <- likelihood_ratio_test(df1, df2, D, 'exponential')
-  p_permutation <- permutation_test(df1, df2, D, 'exponential')
+  p_asymp  <- likelihood_ratio_test(df1, df2, D, law_sojourn = 'exponential')
+  p_permutation <- permutation_test(df1, df2, D, law_sojourn = 'exponential')
   
   c(p_asymp=p_asymp, p_permutation=p_permutation)
 }

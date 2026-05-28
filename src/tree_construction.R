@@ -4,6 +4,7 @@
 # Data structure:
 # - trajectories: data.frame, each row is a trajectory
 # - covariates: data.frame, each row are the covariate for an individual
+# - weights: vector of weights for each individual
 # For now, we don't need an id column, we give id as the row number for each individual
 
 
@@ -235,7 +236,7 @@ D <- 6
 
 # Function for p_value computation
 alg <- function(df1, df2){
-  likelihood_ratio_test(df1, df2, D, 'exponential')
+  likelihood_ratio_test(df1, df2, D, weights, 'exponential')
   # permutation_test(df1, df2, D, 'exponential')
 }
 

@@ -2,21 +2,29 @@
 # id correspond to an individual
 # the rows attached to an id are ordered in the order of the visited states
 
+# We also dispose of a weight vector 
+# i-th element is the weight assigned to the individual for which id=i
+
 
 ### LOG-LIKELIHOOD
 # Part of the log-likelihood depending on alpha
-log_likelihood_alpha <- function(df, alpha) {
+log_likelihood_alpha <- function(df, alpha, weights=NULL) {
   # We compute the initial states of each process
   init_states <- tapply(df$state, df$id, head, 1)
   
-  # And then sum the corresponding log(alpha)
-  ll <- sum(log(alpha[init_states]))
+  # And then sum the corresponding log(alpha) weighted 
+  if (is.null(weights)) {
+    w <- rep(1, length(init_states))
+  } else {
+    w <- weights[as.integer(names(init_states))]
+  }
+  ll <- sum(w*log(alpha[init_states]))
   if (!is.finite(ll)) warning("Log-likelihood is not finite, check alpha for zero entries")
   ll
 }
 
 # Part of the log-likelihood depending on P
-log_likelihood_P <- function(df, P) {
+log_likelihood_P <- function(df, P, weights=NULL) {
   # For each row that has a successor in the same chain
   same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
   
@@ -24,73 +32,114 @@ log_likelihood_P <- function(df, P) {
   state_i <- df$state[same_chain]
   state_j <- df$state[which(same_chain) + 1]
   
+  log_p <- log(P[cbind(state_i, state_j)])
+  
   # Summing the corresponding log(P_ij) 
-  ll <- sum(log(P[cbind(state_i, state_j)]))
+  if (is.null(weights)){
+    w <- rep(1, length(log_p))
+  } else {
+    chain_id <- df$id[same_chain]
+    w <- weights[chain_id]
+  }
+  ll <- sum(w*log_p)
   if (!is.finite(ll)) warning("Log-likelihood is not finite, check P for zero entries")
   ll
 }
 
 # Part of the log-likelihood depending on omega
-log_likelihood_omega <- function(df, omega, law_sojourn='gamma'){
-  switch(law_sojourn, 
-         gamma = sum(dgamma(df$time,
+log_likelihood_omega <- function(df, omega, weights=NULL, law_sojourn='gamma'){
+  log_f <- switch(law_sojourn, 
+                  gamma = dgamma(df$time,
                             shape=omega[df$state, 'shape'],
                             rate=omega[df$state, 'rate'],
-                            log=TRUE)),
-         weibull = sum(dweibull(df$time,
+                            log=TRUE),
+                  weibull = dweibull(df$time,
                                 shape=omega[df$state, 'shape'],
                                 scale=omega[df$state, 'scale'],
-                                log=TRUE)),
-         exponential = sum(dexp(df$time, 
+                                log=TRUE),
+                  exponential = dexp(df$time, 
                                 rate=omega[df$state, 'rate'],
-                                log=TRUE))
+                                log=TRUE)
   )
-  
+  if (is.null(weights)){
+    w <- rep(1, length(log_f))
+  } else {
+    w <- weights[df$id]
+  }
+  ll <- sum(w*log_f)
+  if (!is.finite(ll)) warning("Log-likelihood is not finite, check omega")
+  ll
 }
 
 ### MLE
 # MLE for alpha
-mle_alpha <- function(df, D) {
+mle_alpha <- function(df, D, weights=NULL) {
   init_states <- tapply(df$state, df$id, head, 1) 
-  counts <- tabulate(init_states, nbins = D) # Number for each state
-  counts/sum(counts) # Renormalize to have sum=1
+  
+  if (is.null(weights)) {
+    w <- rep(1, length(init_states))
+  } else {
+    w <- weights[as.integer(names(init_states))]
+  }
+  counts <- tapply(w, init_states, sum)
+  
+  alpha <- numeric(D)
+  alpha[as.integer(names(counts))] <- counts 
+  alpha/sum(alpha) # Renormalize to have sum=1
 }
 
 # MLE for P
-mle_P <- function(df, D) {
+mle_P <- function(df, D, weights=NULL) {
   # Count transitions
   same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
   
   state_i <- df$state[same_chain]
   state_j <- df$state[which(same_chain) + 1]
   
-  # Encoding in a matrix 
-  counts <- matrix(
-    tabulate((state_i - 1) * D + state_j, nbins = D * D),
-    nrow = D, byrow=TRUE)
   
+  if (is.null(weights)){
+    w <- rep(1, length(state_i))
+  } else {
+    chain_id <- df$id[same_chain]
+    w <- weights[chain_id]
+  }
+  
+  # Encoding in a matrix 
+  idx <- (state_j - 1) * D + state_i
+  counts <- tapply(w, idx, sum)
+  
+  P <- matrix(0, nrow=D, ncol=D)
+  P[as.integer(names(counts))] <- counts
+    
   # Force diagonal to 0 (semi-Markov: no self-transitions)
-  diag(counts) <- 0
+  diag(P) <- 0
   
   # Normalize each row by off-diagonal sum (closed-form MLE under constraint)
-  row_sums <- rowSums(counts)
+  row_sums <- rowSums(P)
   row_sums[row_sums == 0] <- Inf  # to get 0 for unvisited states
-  counts / row_sums
+  P / row_sums
 }
 
 
 # MLE for omega - using Nelder-Mead optimization
-mle_omega_gamma <- function(df, D){
+mle_omega_gamma <- function(df, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'rate')))
   
   # For each state s
   for (s in 1:D){
-    # Extracting the corresponding sojourn times
-    times_s <- df$time[df$state==s]
+    # Extracting the corresponding rows
+    df_s <- df[df$state==s,]
+    
+    # and weights
+    if (is.null(weights)){
+      w <- rep(1, nrow(df_s))
+    } else {
+      w <- weights[df_s$id]
+    }
     
     # If less than 2 observations, impossible to estimate
-    if (length(times_s) < 2) {
+    if (nrow(df_s) < 2) {
       warning(paste('State', s, 'has less than 2 valid observations'))
       next
     }
@@ -98,14 +147,14 @@ mle_omega_gamma <- function(df, D){
     # Objective function: negative log likelihood
     nll <- function(pars){
       if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
-      ll <- sum(dgamma(times_s, shape=pars[1], rate=pars[2], log=TRUE))
+      ll <- sum(w*dgamma(df_s$time, shape=pars[1], rate=pars[2], log=TRUE))
       if (!is.finite(ll)) return(1e10)
       -ll
     }
     
     # Starting values using method of moments
-    mean_x <- mean(times_s)
-    var_x <- var(times_s)
+    mean_x <- mean(df_s$time)
+    var_x <- var(df_s$time)
     
     if (is.na(var_x) || var_x < .Machine$double.eps) {
       warning(paste('State', s, 'has near-zero or NA variance'))
@@ -141,17 +190,24 @@ mle_omega_gamma <- function(df, D){
   omega
 }
 
-mle_omega_weibull <- function(df, D){
+mle_omega_weibull <- function(df, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'scale')))
   
   # For each state s
   for (s in 1:D){
-    # Extracting the corresponding sojourn times
-    times_s <- df$time[df$state==s]
+    # Extracting the corresponding rows
+    df_s <- df[df$state==s,]
+    
+    # and weights
+    if (is.null(weights)){
+      w <- rep(1, nrow(df_s))
+    } else {
+      w <- weights[df_s$id]
+    }
     
     # If less than 2 observations, impossible to estimate
-    if (length(times_s) < 2) {
+    if (nrow(df_s) < 2) {
       warning(paste('State', s, 'has less than 2 valid observations'))
       next
     }
@@ -159,7 +215,7 @@ mle_omega_weibull <- function(df, D){
     # Objective function: negative log likelihood
     nll <- function(pars){
       if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
-      ll <- sum(dweibull(times_s, shape=pars[1], scale=pars[2], log=TRUE))
+      ll <- sum(w*dweibull(df_s$time, shape=pars[1], scale=pars[2], log=TRUE))
       if (!is.finite(ll)) return(1e10)
       -ll
     }
@@ -194,40 +250,47 @@ mle_omega_weibull <- function(df, D){
   omega
 }
 
-mle_omega_exponential <- function(df, D){
+mle_omega_exponential <- function(df, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=1, dimnames=list(1:D, c('rate')))
   
   for (s in 1:D){
-    # Extracting the corresponding sojourn times
-    times_s <- df$time[df$state==s]
+    # Extracting the corresponding rows
+    df_s <- df[df$state==s,]
+    
+    # and weights
+    if (is.null(weights)){
+      w <- rep(1, nrow(df_s))
+    } else {
+      w <- weights[df_s$id]
+    }
     
     # If less than 2 observations, impossible to estimate
-    if (length(times_s) < 2) {
+    if (nrow(df_s) < 2) {
       warning(paste('State', s, 'has less than 2 valid observations'))
       next
     }
     
     # MLE for exponential distribution
-    omega[s, 'rate'] <- length(times_s)/sum(times_s)
+    omega[s, 'rate'] <- sum(w)/sum(w*df_s$time)
   }
   omega
 }
 
 ### MAXIMUM LIKELIHOOD ESTIMATION ###
-mle_fit <- function(df, D, law_sojourn='gamma'){
-  alpha_hat <- mle_alpha(df, D)
-  ll_alpha <- log_likelihood_alpha(df, alpha_hat)
+mle_fit <- function(df, D, weights=NULL, law_sojourn='gamma'){
+  alpha_hat <- mle_alpha(df, D, weights)
+  ll_alpha <- log_likelihood_alpha(df, alpha_hat, weights)
   
-  P_hat <- mle_P(df, D)
-  ll_P <- log_likelihood_P(df, P_hat)
+  P_hat <- mle_P(df, D, weights)
+  ll_P <- log_likelihood_P(df, P_hat, weights)
   
   omega_hat <- switch(law_sojourn, 
-                      gamma = mle_omega_gamma(df, D),
-                      weibull = mle_omega_weibull(df, D), 
-                      exponential = mle_omega_exponential(df, D)
+                      gamma = mle_omega_gamma(df, D, weights),
+                      weibull = mle_omega_weibull(df, D, weights), 
+                      exponential = mle_omega_exponential(df, D, weights)
   )
-  ll_omega <- log_likelihood_omega(df, omega_hat, law_sojourn)
+  ll_omega <- log_likelihood_omega(df, omega_hat, weights, law_sojourn)
   
   theta_hat <- list(alpha=alpha_hat, P=P_hat, omega=omega_hat)
   ll <- ll_alpha + ll_P + ll_omega
