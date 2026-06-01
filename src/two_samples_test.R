@@ -4,10 +4,10 @@ source('src/mle_estimation.R')
 # Classical LR test (also called chi2)
 likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'){
   # Combining the two groups
-  df <- rbind(df1, df2)
+  dataframe <- rbind(df1, df2)
   
   # Computing the different estimation
-  global_est <- mle_fit(df, D, weights, law_sojourn)
+  global_est <- mle_fit(dataframe, D, weights, law_sojourn)
   est1 <- mle_fit(df1, D, weights, law_sojourn)
   est2 <- mle_fit(df2, D, weights, law_sojourn)
   
@@ -29,9 +29,9 @@ likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'
 
 # Parametric bootstrap test
 parametric_bootstrap <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100) {
-  df <- rbind(df1, df2)
+  dataframe <- rbind(df1, df2)
   
-  global_est <- mle_fit(df, D, weights, law_sojourn)
+  global_est <- mle_fit(dataframe, D, weights, law_sojourn)
   est1 <- mle_fit(df1, D, weights, law_sojourn)
   est2 <- mle_fit(df2, D, weights, law_sojourn)
   
@@ -56,11 +56,11 @@ parametric_bootstrap <- function(df1, df2, D, weights=NULL, law_sojourn='gamma',
 
 # Permutation test
 permutation_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100) {
-  df <- rbind(df1, df2)
+  dataframe <- rbind(df1, df2)
   n1 <- length(unique(df1$id))
   n2 <- length(unique(df2$id))
   
-  global_est <- mle_fit(df, D, weights, law_sojourn)
+  global_est <- mle_fit(dataframe, D, weights, law_sojourn)
   est1 <- mle_fit(df1, D, weights, law_sojourn)
   est2 <- mle_fit(df2, D, weights, law_sojourn)
   
@@ -68,9 +68,9 @@ permutation_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=1
   T_star <- numeric(R)
   
   for (r in 1:R) {
-    sample1_id   <- sample(unique(df$id), n1)
-    df1_permuted <- subset(df, id %in% sample1_id)
-    df2_permuted <- subset(df, !(id %in% sample1_id))
+    sample1_id   <- sample(unique(dataframe$id), n1)
+    df1_permuted <- subset(dataframe, id %in% sample1_id)
+    df2_permuted <- subset(dataframe, !(id %in% sample1_id))
     
     est1 <- mle_fit(df1_permuted, D, weights, law_sojourn)
     est2 <- mle_fit(df2_permuted, D, weights, law_sojourn)

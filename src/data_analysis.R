@@ -25,7 +25,7 @@ emplois <- aws.s3::s3read_using(
 
 # Assigning the id (ie the row number in individus)
 emplois$id <- match(emplois$IDENT, individus$IDENT) 
-# Extracting the states
+# Extracting the states (the number starting CONTRAT_EMB)
 emplois$state <- as.integer(
   substr(iconv(emplois$CONTRAT_EMB, to='UTF-8', sub=''), 1, 2))
 # And the sojourn time
@@ -33,4 +33,22 @@ emplois$time <- emplois$DUREE
 
 # Now, creating the dataframe used for analysis
 dataframe <- emplois[, c('id', 'state', 'time')]
+covariates <- data.frame(
+  sex=factor(individus$Q1, levels=c(1,2), labels=c('H', 'F'))
+)
+covariates$etr <- factor(
+  individus$FRAETR09, levels=c(1,2), labels=c('FRA', 'ETR')
+  )
+covariates$bp3 <- factor(
+  individus$BP3, levels=c(1,2), labels=c('yes', 'no')
+)
 
+source('src/tree_construction.R')
+source('src/two_samples_test.R')
+
+D <- 5
+alg <- function(df1, df2){
+  likelihood_ratio_test(df1, df2, D, law_sojourn='exponential')
+}
+
+tree <- build_tree(result, covariates, alg)

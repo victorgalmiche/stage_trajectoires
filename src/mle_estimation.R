@@ -8,9 +8,9 @@
 
 ### LOG-LIKELIHOOD
 # Part of the log-likelihood depending on alpha
-log_likelihood_alpha <- function(df, alpha, weights=NULL) {
+log_likelihood_alpha <- function(dataframe, alpha, weights=NULL) {
   # We compute the initial states of each process
-  init_states <- tapply(df$state, df$id, head, 1)
+  init_states <- tapply(dataframe$state, dataframe$id, head, 1)
   
   # And then sum the corresponding log(alpha) weighted 
   if (is.null(weights)) {
@@ -24,13 +24,13 @@ log_likelihood_alpha <- function(df, alpha, weights=NULL) {
 }
 
 # Part of the log-likelihood depending on P
-log_likelihood_P <- function(df, P, weights=NULL) {
+log_likelihood_P <- function(dataframe, P, weights=NULL) {
   # For each row that has a successor in the same chain
-  same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
+  same_chain <- c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], FALSE)
   
   # Computing the transitions
-  state_i <- df$state[same_chain]
-  state_j <- df$state[which(same_chain) + 1]
+  state_i <- dataframe$state[same_chain]
+  state_j <- dataframe$state[which(same_chain) + 1]
   
   log_p <- log(P[cbind(state_i, state_j)])
   
@@ -38,7 +38,7 @@ log_likelihood_P <- function(df, P, weights=NULL) {
   if (is.null(weights)){
     w <- rep(1, length(log_p))
   } else {
-    chain_id <- df$id[same_chain]
+    chain_id <- dataframe$id[same_chain]
     w <- weights[chain_id]
   }
   ll <- sum(w*log_p)
@@ -47,24 +47,24 @@ log_likelihood_P <- function(df, P, weights=NULL) {
 }
 
 # Part of the log-likelihood depending on omega
-log_likelihood_omega <- function(df, omega, weights=NULL, law_sojourn='gamma'){
+log_likelihood_omega <- function(dataframe, omega, weights=NULL, law_sojourn='gamma'){
   log_f <- switch(law_sojourn, 
-                  gamma = dgamma(df$time,
-                            shape=omega[df$state, 'shape'],
-                            rate=omega[df$state, 'rate'],
+                  gamma = dgamma(dataframe$time,
+                            shape=omega[dataframe$state, 'shape'],
+                            rate=omega[dataframe$state, 'rate'],
                             log=TRUE),
-                  weibull = dweibull(df$time,
-                                shape=omega[df$state, 'shape'],
-                                scale=omega[df$state, 'scale'],
+                  weibull = dweibull(dataframe$time,
+                                shape=omega[dataframe$state, 'shape'],
+                                scale=omega[dataframe$state, 'scale'],
                                 log=TRUE),
-                  exponential = dexp(df$time, 
-                                rate=omega[df$state, 'rate'],
+                  exponential = dexp(dataframe$time, 
+                                rate=omega[dataframe$state, 'rate'],
                                 log=TRUE)
   )
   if (is.null(weights)){
     w <- rep(1, length(log_f))
   } else {
-    w <- weights[df$id]
+    w <- weights[dataframe$id]
   }
   ll <- sum(w*log_f)
   if (!is.finite(ll)) warning("Log-likelihood is not finite, check omega")
@@ -73,8 +73,8 @@ log_likelihood_omega <- function(df, omega, weights=NULL, law_sojourn='gamma'){
 
 ### MLE
 # MLE for alpha
-mle_alpha <- function(df, D, weights=NULL) {
-  init_states <- tapply(df$state, df$id, head, 1) 
+mle_alpha <- function(dataframe, D, weights=NULL) {
+  init_states <- tapply(dataframe$state, dataframe$id, head, 1) 
   
   if (is.null(weights)) {
     w <- rep(1, length(init_states))
@@ -89,18 +89,18 @@ mle_alpha <- function(df, D, weights=NULL) {
 }
 
 # MLE for P
-mle_P <- function(df, D, weights=NULL) {
+mle_P <- function(dataframe, D, weights=NULL) {
   # Count transitions
-  same_chain <- c(df$id[-1] == df$id[-nrow(df)], FALSE)
+  same_chain <- c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], FALSE)
   
-  state_i <- df$state[same_chain]
-  state_j <- df$state[which(same_chain) + 1]
+  state_i <- dataframe$state[same_chain]
+  state_j <- dataframe$state[which(same_chain) + 1]
   
   
   if (is.null(weights)){
     w <- rep(1, length(state_i))
   } else {
-    chain_id <- df$id[same_chain]
+    chain_id <- dataframe$id[same_chain]
     w <- weights[chain_id]
   }
   
@@ -122,14 +122,14 @@ mle_P <- function(df, D, weights=NULL) {
 
 
 # MLE for omega - using Nelder-Mead optimization
-mle_omega_gamma <- function(df, D, weights=NULL){
+mle_omega_gamma <- function(dataframe, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'rate')))
   
   # For each state s
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- df[df$state==s,]
+    df_s <- dataframe[dataframe$state==s,]
     
     # and weights
     if (is.null(weights)){
@@ -190,14 +190,14 @@ mle_omega_gamma <- function(df, D, weights=NULL){
   omega
 }
 
-mle_omega_weibull <- function(df, D, weights=NULL){
+mle_omega_weibull <- function(dataframe, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'scale')))
   
   # For each state s
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- df[df$state==s,]
+    df_s <- dataframe[dataframe$state==s,]
     
     # and weights
     if (is.null(weights)){
@@ -250,13 +250,13 @@ mle_omega_weibull <- function(df, D, weights=NULL){
   omega
 }
 
-mle_omega_exponential <- function(df, D, weights=NULL){
+mle_omega_exponential <- function(dataframe, D, weights=NULL){
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=1, dimnames=list(1:D, c('rate')))
   
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- df[df$state==s,]
+    df_s <- dataframe[dataframe$state==s,]
     
     # and weights
     if (is.null(weights)){
@@ -278,19 +278,19 @@ mle_omega_exponential <- function(df, D, weights=NULL){
 }
 
 ### MAXIMUM LIKELIHOOD ESTIMATION ###
-mle_fit <- function(df, D, weights=NULL, law_sojourn='gamma'){
-  alpha_hat <- mle_alpha(df, D, weights)
-  ll_alpha <- log_likelihood_alpha(df, alpha_hat, weights)
+mle_fit <- function(dataframe, D, weights=NULL, law_sojourn='gamma'){
+  alpha_hat <- mle_alpha(dataframe, D, weights)
+  ll_alpha <- log_likelihood_alpha(dataframe, alpha_hat, weights)
   
-  P_hat <- mle_P(df, D, weights)
-  ll_P <- log_likelihood_P(df, P_hat, weights)
+  P_hat <- mle_P(dataframe, D, weights)
+  ll_P <- log_likelihood_P(dataframe, P_hat, weights)
   
   omega_hat <- switch(law_sojourn, 
-                      gamma = mle_omega_gamma(df, D, weights),
-                      weibull = mle_omega_weibull(df, D, weights), 
-                      exponential = mle_omega_exponential(df, D, weights)
+                      gamma = mle_omega_gamma(dataframe, D, weights),
+                      weibull = mle_omega_weibull(dataframe, D, weights), 
+                      exponential = mle_omega_exponential(dataframe, D, weights)
   )
-  ll_omega <- log_likelihood_omega(df, omega_hat, weights, law_sojourn)
+  ll_omega <- log_likelihood_omega(dataframe, omega_hat, weights, law_sojourn)
   
   theta_hat <- list(alpha=alpha_hat, P=P_hat, omega=omega_hat)
   ll <- ll_alpha + ll_P + ll_omega
