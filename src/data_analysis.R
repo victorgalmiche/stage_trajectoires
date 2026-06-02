@@ -32,7 +32,11 @@ emplois$state <- as.integer(
 emplois$time <- emplois$DUREE
 
 # Now, creating the dataframe used for analysis
-dataframe <- emplois[, c('id', 'state', 'time')]
+group <- cumsum(c(TRUE, diff(as.numeric(interaction(emplois$id, emplois$state)))!=0))
+dataframe <- aggregate(time ~ group + id + state, data = cbind(emplois, group), sum)
+dataframe <- result[order(dataframe$group), c("id", "state", "time")]
+
+
 covariates <- data.frame(
   sex=factor(individus$Q1, levels=c(1,2), labels=c('H', 'F'))
 )
@@ -42,6 +46,8 @@ covariates$etr <- factor(
 covariates$bp3 <- factor(
   individus$BP3, levels=c(1,2), labels=c('yes', 'no')
 )
+covariates$reg <- factor(individus$REGETAB)
+
 
 source('src/tree_construction.R')
 source('src/two_samples_test.R')

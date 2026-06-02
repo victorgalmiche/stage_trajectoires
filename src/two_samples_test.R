@@ -1,5 +1,5 @@
-source('src/synthesis_data_generation.R')
-source('src/mle_estimation.R')
+source('src/semi_markov/synthesis_data_generation.R')
+source('src/semi_markov/mle_estimation.R')
 
 # Classical LR test (also called chi2)
 likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'){
