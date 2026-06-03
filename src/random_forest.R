@@ -11,15 +11,16 @@ random_forest <- function(dataframe, covariates, pval_algo,
   on.exit(stopCluster(cl))
   
   forest <- foreach(
-    i = 1:n_tres,
+    i = 1:n_trees,
     .combine = c,
-    .export = c("build_tree")
+    .export = c("build_tree", "find_best_split", "best_split_categorical",
+                "best_split_numeric", "generate_bipartitions")
   ) %dopar% { 
     sample_indices <- sample(nrow(dataframe), size = max_samples, replace = TRUE)
     bootstrap_sample <- dataframe[sample_indices, ]
     
-    build_tree(bootstrap_sample, covariates, pval_algo, min_obs, min_leaf, 
-               alpha, max_depth)
+    build_tree(bootstrap_sample, covariates, pval_algo, max_features, 
+               min_obs, min_leaf, alpha, max_depth)
   }
   
   return(forest)
