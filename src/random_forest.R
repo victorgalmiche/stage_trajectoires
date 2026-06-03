@@ -2,6 +2,7 @@ library(doParallel)
 library(foreach)
 
 source('src/tree_construction.R')
+source('src/two_samples_test.R')
 
 random_forest <- function(dataframe, covariates, pval_algo, 
                           n_trees=100, min_obs, min_leaf, alpha, max_depth,
@@ -19,8 +20,12 @@ random_forest <- function(dataframe, covariates, pval_algo,
     sample_indices <- sample(nrow(dataframe), size = max_samples, replace = TRUE)
     bootstrap_sample <- dataframe[sample_indices, ]
     
-    build_tree(bootstrap_sample, covariates, pval_algo, max_features, 
-               min_obs, min_leaf, alpha, max_depth)
+    alg <- function(df1, df2) {
+      likelihood_ratio_test(df1, df2, 6, law_sojourn='exponential')
+    }
+    
+    build_tree(bootstrap_sample, covariates[sample_indices, ], alg,
+               max_features, min_obs, min_leaf, alpha, max_depth)
   }
   
   return(forest)

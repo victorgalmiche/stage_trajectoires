@@ -171,10 +171,10 @@ build_tree <- function(dataframe, covariates, pvalue_algo, max_features,
   
   # Random selection of features among the covariates table
   size_sample <- switch(max_features, 
-                        sqrt = sqrt(ncols(covariates)),
-                        log2 = log2(ncols(covariates)))
+                        sqrt = sqrt(ncol(covariates)),
+                        log2 = log2(ncol(covariates)))
   
-  sample_cols <- sample(ncols(covariates), size = size_sample)
+  sample_cols <- sample(ncol(covariates), size = size_sample)
   sample_features <- covariates[, sample_cols]
   
   # Finding the best split
@@ -246,7 +246,4 @@ build_tree <- function(dataframe, covariates, pvalue_algo, max_features,
 # # Tree construction
 # tree <- build_tree(traj_df, covariates, alg)
 # 
-# # Affichage
-# cat("=== ARBRE DE TRAJECTOIRES ===\n\n")
-# print_tree(tree)
 
