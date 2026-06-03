@@ -11,22 +11,42 @@ random_forest <- function(dataframe, covariates, pval_algo,
   registerDoParallel(cl)
   on.exit(stopCluster(cl))
   
+  clusterEvalQ(cl, {
+    source('src/semi_markov/synthesis_data_generation.R')
+    source('src/semi_markov/mle_estimation.R')
+    source('src/two_samples_test.R')
+    source('src/tree_construction.R')
+  })
+  ids <- unique(dataframe$id)
   forest <- foreach(
     i = 1:n_trees,
     .combine = c,
-    .export = c("build_tree", "find_best_split", "best_split_categorical",
-                "best_split_numeric", "generate_bipartitions")
+    .export = c(
+      "dataframe", "covariates", "pval_algo", "ids", "max_samples",
+      "min_obs", "min_leaf", "alpha", "max_depth", "max_features",
+      "build_tree", "find_best_split", "best_split_categorical",
+      "best_split_numeric", "generate_bipartitions")
   ) %dopar% { 
-    sample_indices <- sample(nrow(dataframe), size = max_samples, replace = TRUE)
-    bootstrap_sample <- dataframe[sample_indices, ]
+    boot_ids <- sample(ids, size = max_samples, replace = TRUE)
+    bootstrap_sample <- subset(dataframe, id %in% boot_ids) 
     
-    alg <- function(df1, df2) {
-      likelihood_ratio_test(df1, df2, 6, law_sojourn='exponential')
-    }
-    
-    build_tree(bootstrap_sample, covariates[sample_indices, ], alg,
+    build_tree(bootstrap_sample, covariates, pval_algo,
                max_features, min_obs, min_leaf, alpha, max_depth)
   }
   
   return(forest)
 }
+
+
+# TEST 
+library(TraMineR)
+data(mvad)
+trajectories <- mvad[, 17:86]
+covariates <- mvad[, 3:14]
+traj_df <- traj_to_df(trajectories)
+
+alg <- function(df1, df2) {
+  likelihood_ratio_test(df1, df2, 6, law_sojourn='exponential')
+}
+
+rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
