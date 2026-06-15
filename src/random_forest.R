@@ -54,3 +54,6 @@ alg <- function(df1, df2) {
 }
 
 rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
+
+
+source('src/variable_importance.R')
