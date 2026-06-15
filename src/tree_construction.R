@@ -209,6 +209,57 @@ build_tree <- function(dataframe, covariates, pvalue_algo, max_features,
   )
 }
 
+
+
+# Function to get the leaf an observation belongs to
+# obs is a row of covariates
+get_leaf <- function(node, obs) {
+  if (node$type == 'leaf') return(node)
+  
+  val <- obs[[node$split$var]]
+  
+  goes_left <- if (node$split$type == 'categorical') {
+    val %in% node$split$left_levels
+  } else {
+    val <= node$split$threshold       
+  }
+  
+  if (goes_left) get_leaf(node$left, obs) else get_leaf(node$right, obs)
+}
+
+# negative log-likelihood of an observation 
+
+smooth_P <- function(P, epsilon = 1e-6) {
+  P_smooth <- P + epsilon
+  P_smooth / rowSums(P_smooth)
+}
+
+smooth_alpha <- function(alpha, epsilon = 1e-6) {
+  alpha_smooth <- alpha + epsilon
+  alpha_smooth / sum(alpha_smooth)
+}
+
+
+neg_log_lik <- function(tree, obs_id, dataframe, covariates, D, law_sojourn) {
+  obs <- covariates[obs_id, ]
+  trajectory_df <- subset(dataframe, id==obs_id)
+  
+  node <- get_leaf(tree, obs)
+  estimation <- mle_fit(subset(dataframe, id %in% node$population),
+                        D, law_sojourn=law_sojourn)
+  
+  # To ensure non-zero entries 
+  alpha_smooth <- smooth_alpha(estimation$estimator$alpha)
+  P_smooth     <- smooth_P(estimation$estimator$P)
+  
+  ll_alpha <- log_likelihood_alpha(trajectory_df, alpha_smooth)
+  ll_P <- log_likelihood_P(trajectory_df, P_smooth)
+  ll_omega <- log_likelihood_omega(trajectory_df, estimation$estimator$omega, 
+                                   law_sojourn=law_sojourn)
+  
+  - ll_alpha - ll_P - ll_omega
+}
+
 ### EXAMPLES 
 
 # # Use example w/ mvad data

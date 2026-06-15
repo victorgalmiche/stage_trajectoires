@@ -1,5 +1,8 @@
 source('src/semi_markov/mle_estimation.R')
+source('src/tree_construction.R')
 
+
+### MDI
 # We begin by using 1-pvalue as a proxy for the impurity
 MDI_tree <- function(node, covariate_name, n_root) {
   if (node$type == 'leaf') {
@@ -35,6 +38,53 @@ MDI <- function(forest, covariate_name) {
 MDI_all <- function(forest, covariates) {
   importance <- vapply(names(covariates), function(cov) {
     MDI(forest, cov)
+  }, numeric(1))
+  
+  sort(importance, decreasing = TRUE)
+}
+
+
+
+### MDA 
+oob_score <- function(tree, oob_ids, dataframe, covariates, D, law_sojourn) {
+  scores <- vapply(oob_ids, function(obs_id) {
+    tryCatch(
+      neg_log_lik(tree, obs_id, dataframe, covariates, D, law_sojourn),
+      error = function(e) NA_real_   # guard against empty leaves
+    )
+  }, numeric(1))
+  
+  mean(scores, na.rm = TRUE)
+}
+
+MDA <- function(forest, covariate_name, dataframe, covariates, D, law_sojourn) {
+  all_ids <- unique(dataframe$id)
+  
+  decreases <- vapply(forest, function(tree) {
+    oob_ids <- setdiff(all_ids, tree$population)
+    if (length(oob_ids) == 0) return(NA_real_)
+    
+    base_score <- oob_score(tree, oob_ids, dataframe, covariates, D, law_sojourn)
+    
+    # Permute the target covariate for OOB observations only
+    covariates_permuted <- covariates
+    covariates_permuted[oob_ids, covariate_name] <- 
+      sample(covariates[oob_ids, covariate_name])
+    
+    perm_score <- oob_score(tree, oob_ids, dataframe, covariates_permuted, D, law_sojourn)
+    
+    # Positive = permutation hurt = covariate was useful
+    perm_score - base_score
+  }, numeric(1))
+  
+  mean(decreases, na.rm = TRUE)
+}
+
+
+# Rank all covariates
+MDA_all <- function(forest, dataframe, covariates, D, law_sojourn) {
+  importance <- vapply(names(covariates), function(cov) {
+    MDA(forest, cov, dataframe, covariates, D, law_sojourn)
   }, numeric(1))
   
   sort(importance, decreasing = TRUE)
