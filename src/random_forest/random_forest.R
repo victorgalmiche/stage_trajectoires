@@ -14,11 +14,17 @@ random_forest <- function(dataframe, covariates, pval_algo,
     source('src/semi_markov/synthesis_data_generation.R')
     source('src/semi_markov/mle_estimation.R')
     source('src/random_forest/tree_construction.R')
+    source('src/two_samples_test.R')
   })
+  
+  # Export variables from caller's environment that alg() needs
+  clusterExport(cl, c("D", "weights", "law_sojourn"), 
+                envir = parent.frame())
+  
   ids <- unique(dataframe$id)
   forest <- foreach(
     i = 1:n_trees,
-    .combine = c,
+    .combine = list,
     .multicombine = TRUE,
     .maxcombine = n_trees,
     .errorhandling = "remove",
@@ -31,9 +37,8 @@ random_forest <- function(dataframe, covariates, pval_algo,
     idx <- unlist(lapply(boot_ids, function(id) which(dataframe$id == id)))
     bootstrap_sample <- dataframe[idx, ] 
     
-    # Wrap into a list for the aggregation
-    list(build_tree(bootstrap_sample, covariates, pval_algo,
-               max_features, min_obs, min_leaf, alpha, max_depth))
+    build_tree(bootstrap_sample, covariates, pval_algo,
+               max_features, min_obs, min_leaf, alpha, max_depth)
   }
   
   return(forest)

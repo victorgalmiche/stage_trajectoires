@@ -25,6 +25,8 @@ source('src/random_forest/random_forest.R')
 source('src/random_forest/variable_importance.R')
 source('src/two_samples_test.R')
 
+library(doParallel)
+library(foreach)
 library(TraMineR)
 
 # mvad data
