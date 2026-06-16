@@ -8,52 +8,7 @@
 # For now, we don't need an id column, we give id as the row number for each individual
 
 
-# Conversion function from trajectories to dataframe format used by two_sample_test.R
-traj_to_df <- function(trajectories) {
-  res <- list()
-  
-  for (i in seq_len(nrow(trajectories))) {
-    states <- as.integer(trajectories[i, ]) # Extracting the trajectory of i
-    changes <- c(TRUE, diff(states) != 0) # Breakpoint detection
-    episodes <- cumsum(changes) # Episode numbering
-    durations <- table(episodes) # Duration of each episode
-    episode_states <- states[changes] # Corresponding state
-    
-    # Construction of the resulting dataframe
-    res[[i]] <- data.frame(
-      id = i,
-      state = episode_states,
-      time = as.integer(durations)
-    )
-  }
-  
-  do.call(rbind, res)
-}
-
 # Find the best split among the different covariates
-# We suppose that each covariates are binary categorical (2 modalities)
-old_best_split_categorical <- function(dataframe, covariate, min_leaf, pvalue_algo) {
-  best <- list(pval = 1, var = NULL, left_level = NULL, right_level = NULL)
-  
-  levs <- levels(covariate) # For now, a max of 2 levels 
-  left_ids <- which(covariate==levs[1])
-  
-  df_left <- subset(dataframe, id %in% left_ids)
-  df_right <- subset(dataframe, !(id %in% left_ids))
-  
-  if (length(unique(df_left$id))>min_leaf &&
-      length(unique(df_right$id))>min_leaf) {
-    
-    pval <- pvalue_algo(df_left, df_right)
-    if (pval < best$pval)
-      best <- list(pval = pval, 
-                   var = var, 
-                   left_level = levs[1], 
-                   right_level = levs[2])
-  }
-  best
-}
-
 
 # Helper function to generate bipartitions 
 generate_bipartitions <- function(n_levels) {
@@ -228,7 +183,6 @@ get_leaf <- function(node, obs) {
 }
 
 # negative log-likelihood of an observation 
-
 smooth_P <- function(P, epsilon = 1e-6) {
   P_smooth <- P + epsilon
   P_smooth / rowSums(P_smooth)
@@ -239,62 +193,25 @@ smooth_alpha <- function(alpha, epsilon = 1e-6) {
   alpha_smooth / sum(alpha_smooth)
 }
 
-
-neg_log_lik <- function(tree, obs_id, dataframe, covariates, D, law_sojourn) {
+neg_log_lik <- function(tree, obs_id, dataframe, covariates, 
+                        D, weights=NULL, law_sojourn='gamma') {
   obs <- covariates[obs_id, ]
   trajectory_df <- subset(dataframe, id==obs_id)
   
   node <- get_leaf(tree, obs)
   estimation <- mle_fit(subset(dataframe, id %in% node$population),
-                        D, law_sojourn=law_sojourn)
+                        D, weights, law_sojourn)
   
   # To ensure non-zero entries 
   alpha_smooth <- smooth_alpha(estimation$estimator$alpha)
   P_smooth     <- smooth_P(estimation$estimator$P)
   
-  ll_alpha <- log_likelihood_alpha(trajectory_df, alpha_smooth)
-  ll_P <- log_likelihood_P(trajectory_df, P_smooth)
+  ll_alpha <- log_likelihood_alpha(trajectory_df, alpha_smooth, weights)
+  ll_P <- log_likelihood_P(trajectory_df, P_smooth, weights)
   ll_omega <- log_likelihood_omega(trajectory_df, estimation$estimator$omega, 
-                                   law_sojourn=law_sojourn)
+                                   weights, law_sojourn)
   
   - ll_alpha - ll_P - ll_omega
 }
 
-### EXAMPLES 
-
-# # Use example w/ mvad data
-# source('src/two_samples_test.R')
-# library(TraMineR)
-# 
-# # mvad
-# data(mvad)
-# trajectories <- mvad[, 17:86]
-# covariates <- mvad[, 3:14]
-# traj_df <- traj_to_df(trajectories)
-# 
-# # biofam
-# data(biofam)
-# trajectories <- biofam[, 10:25]
-# traj_df <- traj_to_df(trajectories) 
-# traj_df$state <- traj_df$state + 1 # to have state number beginning at 1
-# covariates <- biofam[, 5:9]
-# 
-# # actcal
-# data(actcal)
-# trajectories <- actcal[, 13:24]
-# traj_df <- traj_to_df(trajectories)
-# traj_df$state <- traj_df$state - 5 # state number beginning at 1
-# covariates <- actcal[, 2:12]
-# 
-# D <- 6
-# 
-# # Function for p_value computation
-# alg <- function(df1, df2){
-#   likelihood_ratio_test(df1, df2, D, weights, 'exponential')
-#   # permutation_test(df1, df2, D, 'exponential')
-# }
-# 
-# # Tree construction
-# tree <- build_tree(traj_df, covariates, alg)
-# 
 

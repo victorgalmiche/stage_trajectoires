@@ -1,5 +1,5 @@
 source('src/semi_markov/mle_estimation.R')
-source('src/tree_construction.R')
+source('src/random_forest/tree_construction.R')
 
 
 ### MDI

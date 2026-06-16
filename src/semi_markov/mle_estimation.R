@@ -1,5 +1,5 @@
 # We dispose of a dataframe with columns id, state, time
-# id correspond to an individual
+# id correspond to an individual and are 1 to N w/ N the number of individual
 # the rows attached to an id are ordered in the order of the visited states
 
 # We also dispose of a weight vector 

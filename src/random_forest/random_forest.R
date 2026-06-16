@@ -1,8 +1,7 @@
 library(doParallel)
 library(foreach)
 
-source('src/tree_construction.R')
-source('src/two_samples_test.R')
+source('src/random_forest/tree_construction.R')
 
 random_forest <- function(dataframe, covariates, pval_algo, 
                           n_trees=100, min_obs, min_leaf, alpha, max_depth,
@@ -14,8 +13,7 @@ random_forest <- function(dataframe, covariates, pval_algo,
   clusterEvalQ(cl, {
     source('src/semi_markov/synthesis_data_generation.R')
     source('src/semi_markov/mle_estimation.R')
-    source('src/two_samples_test.R')
-    source('src/tree_construction.R')
+    source('src/random_forest/tree_construction.R')
   })
   ids <- unique(dataframe$id)
   forest <- foreach(
@@ -41,19 +39,3 @@ random_forest <- function(dataframe, covariates, pval_algo,
   return(forest)
 }
 
-
-# TEST 
-library(TraMineR)
-data(mvad)
-trajectories <- mvad[, 17:86]
-covariates <- mvad[, 3:14]
-traj_df <- traj_to_df(trajectories)
-
-alg <- function(df1, df2) {
-  likelihood_ratio_test(df1, df2, 6, law_sojourn='exponential')
-}
-
-rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
-
-
-source('src/variable_importance.R')

@@ -1,50 +1,71 @@
-library(doParallel)
-library(foreach)
-
-source('src/synthesis_data_generation.R')
-source('src/two_samples_test.R')
-
-D <- 4; n1 <- 30; n2 <- 30; M <- 5; nb_datasets <- 500
-
-cl <- makeCluster(detectCores() - 1)
-registerDoParallel(cl)
-
-results <- foreach(
-  i = 1:nb_datasets,
-  .combine = rbind,
-  .export = c("generate_theta", "generate_dataset_H0", 
-              "likelihood_ratio_test", "permutation_test")
-) %dopar% {  
+# Conversion function from trajectories to dataframe format used by two_sample_test.R
+traj_to_df <- function(trajectories) {
+  res <- list()
   
-  theta <- generate_theta(D, 'exponential')
-  df <- generate_dataset_H0(theta, 'exponential', n1, n2, M)
+  for (i in seq_len(nrow(trajectories))) {
+    states <- as.integer(trajectories[i, ]) # Extracting the trajectory of i
+    changes <- c(TRUE, diff(states) != 0) # Breakpoint detection
+    episodes <- cumsum(changes) # Episode numbering
+    durations <- table(episodes) # Duration of each episode
+    episode_states <- states[changes] # Corresponding state
+    
+    # Construction of the resulting dataframe
+    res[[i]] <- data.frame(
+      id = i,
+      state = episode_states,
+      time = as.integer(durations)
+    )
+  }
   
-  df1 <- subset(df, id<=n1)
-  df2 <- subset(df, id>n1)
-  
-  p_asymp  <- likelihood_ratio_test(df1, df2, D, law_sojourn = 'exponential')
-  p_permutation <- permutation_test(df1, df2, D, law_sojourn = 'exponential')
-  
-  c(p_asymp=p_asymp, p_permutation=p_permutation)
+  do.call(rbind, res)
 }
 
-stopCluster(cl)
+### TEST RANDOM FOREST AND TREES
+source('src/random_forest/random_forest.R')
+source('src/random_forest/variable_importance.R')
+source('src/two_samples_test.R')
 
-p_asymp  <- results[, "p_asymp"]
-p_permutation <- results[, "p_permutation"]
+library(TraMineR)
 
-# Plot
-par(mar = c(4, 4, 2, 1))
-plot(ecdf(unlist(p_asymp)),
-     main = "n1=n2=30 and D=10",
-     xlab = "p-value",
-     ylab = "Cumulative probability",
-     col  = "red",
-     do.points=FALSE)
-lines(ecdf(p_permutation), col = "green", do.points=FALSE)
-abline(a = 0, b = 1, col = "black")
-legend("bottomright",
-       legend = c("Chi^2", "Permutation", "Uniforme"),
-       col    = c("red", "green", "black"),
-       lty    = c(1, 1, 1))
+# mvad data
+data(mvad)
+trajectories <- mvad[, 17:86]
+covariates <- mvad[, 3:14]
+traj_df <- traj_to_df(trajectories)
 
+# Number of states 
+D <- 6
+
+weights <- mvad[, 2]
+law_sojourn <- 'exponential'
+
+# Function for p_value computation
+alg <- function(df1, df2){
+  likelihood_ratio_test(df1, df2, D, weights, law_sojourn)
+  # permutation_test(df1, df2, D, law_sojourn)
+}
+
+
+# Tree construction
+# tree <- build_tree(traj_df, covariates, alg)
+
+# And a random forest
+rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
+
+ranking_MDI <- MDI_all(rf, covariates)
+
+
+
+# # biofam
+# data(biofam)
+# trajectories <- biofam[, 10:25]
+# traj_df <- traj_to_df(trajectories) 
+# traj_df$state <- traj_df$state + 1 # to have state number beginning at 1
+# covariates <- biofam[, 5:9]
+# 
+# # actcal
+# data(actcal)
+# trajectories <- actcal[, 13:24]
+# traj_df <- traj_to_df(trajectories)
+# traj_df$state <- traj_df$state - 5 # state number beginning at 1
+# covariates <- actcal[, 2:12]
