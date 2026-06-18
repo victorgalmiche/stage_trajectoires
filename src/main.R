@@ -29,6 +29,7 @@ library(doParallel)
 library(foreach)
 library(TraMineR)
 
+
 # mvad data
 data(mvad)
 trajectories <- mvad[, 17:86]
@@ -39,12 +40,12 @@ traj_df <- traj_to_df(trajectories)
 D <- 6
 
 weights <- mvad[, 2]
-law_sojourn <- 'exponential'
+law_sojourn <- 'gamma'
 
 # Function for p_value computation
 alg <- function(df1, df2){
   likelihood_ratio_test(df1, df2, D, weights, law_sojourn)
-  # permutation_test(df1, df2, D, law_sojourn)
+  #permutation_test(df1, df2, D, weights, law_sojourn)
 }
 
 
@@ -57,6 +58,12 @@ rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
 ranking_MDI <- MDI_all(rf, covariates)
 
 
+barplot(ranking_MDI, 
+        main = "Permutation test and Gamma Law",
+        ylab = "MDI", 
+        ylim = c(0,1),
+        col = "blue", 
+        las = 2)
 
 # # biofam
 # data(biofam)
