@@ -59,7 +59,7 @@ ranking_MDI <- MDI_all(rf, covariates)
 
 
 barplot(ranking_MDI, 
-        main = "Permutation test and Gamma Law",
+        main = "Chi^2 test and Gamma Law",
         ylab = "MDI", 
         ylim = c(0,1),
         col = "blue", 
