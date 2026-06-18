@@ -40,7 +40,7 @@ traj_df <- traj_to_df(trajectories)
 D <- 6
 
 weights <- mvad[, 2]
-law_sojourn <- 'gamma'
+law_sojourn <- 'exponential'
 
 # Function for p_value computation
 alg <- function(df1, df2){
@@ -55,11 +55,25 @@ alg <- function(df1, df2){
 # And a random forest
 rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
 
-ranking_MDI <- MDI_all(rf, covariates)
+system.time({
+  ranking_MDA <- MDA_all(rf, traj_df, covariates, D, weights, law_sojourn)
+})
 
+
+system.time({
+  ranking_MDI <- MDI_all(rf, covariates)
+})
+
+
+
+barplot(ranking_MDA, 
+        main = "Chi^2 test and Exponential Law",
+        ylab = "MDA", 
+        col = "blue", 
+        las = 2)
 
 barplot(ranking_MDI, 
-        main = "Chi^2 test and Gamma Law",
+        main = "Chi^2 test and Exponential Law",
         ylab = "MDI", 
         ylim = c(0,1),
         col = "blue", 

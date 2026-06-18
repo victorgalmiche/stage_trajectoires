@@ -182,6 +182,20 @@ get_leaf <- function(node, obs) {
   if (goes_left) get_leaf(node$left, obs) else get_leaf(node$right, obs)
 }
 
+# Attach the Semi-Markov estimator to each leaf
+attach_leaf_estimators <- function(node, dataframe, D, weights, law_sojourn) {
+  if (node$type == 'leaf') {
+    # Leaf: compute and attach estimator
+    estimation <- mle_fit(subset(dataframe, id %in% node$population),
+                          D, weights, law_sojourn)
+    node$estimator <- estimation$estimator
+  } else {
+    node$left <- attach_leaf_estimators(node$left,  dataframe, D, weights, law_sojourn)
+    node$right <- attach_leaf_estimators(node$right, dataframe, D, weights, law_sojourn)
+  }
+  node
+}
+
 # negative log-likelihood of an observation 
 smooth_P <- function(P, epsilon = 1e-6) {
   P_smooth <- P + epsilon
@@ -199,16 +213,14 @@ neg_log_lik <- function(tree, obs_id, dataframe, covariates,
   trajectory_df <- subset(dataframe, id==obs_id)
   
   node <- get_leaf(tree, obs)
-  estimation <- mle_fit(subset(dataframe, id %in% node$population),
-                        D, weights, law_sojourn)
   
   # To ensure non-zero entries 
-  alpha_smooth <- smooth_alpha(estimation$estimator$alpha)
-  P_smooth     <- smooth_P(estimation$estimator$P)
+  alpha_smooth <- smooth_alpha(node$estimator$alpha)
+  P_smooth     <- smooth_P(node$estimator$P)
   
   ll_alpha <- log_likelihood_alpha(trajectory_df, alpha_smooth, weights)
   ll_P <- log_likelihood_P(trajectory_df, P_smooth, weights)
-  ll_omega <- log_likelihood_omega(trajectory_df, estimation$estimator$omega, 
+  ll_omega <- log_likelihood_omega(trajectory_df, node$estimator$omega, 
                                    weights, law_sojourn)
   
   - ll_alpha - ll_P - ll_omega

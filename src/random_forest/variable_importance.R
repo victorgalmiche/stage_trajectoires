@@ -46,10 +46,10 @@ MDI_all <- function(forest, covariates) {
 
 
 ### MDA 
-oob_score <- function(tree, oob_ids, dataframe, covariates, D, law_sojourn) {
+oob_score <- function(tree, oob_ids, dataframe, covariates, D, weights, law_sojourn) {
   scores <- vapply(oob_ids, function(obs_id) {
     tryCatch(
-      neg_log_lik(tree, obs_id, dataframe, covariates, D, law_sojourn),
+      neg_log_lik(tree, obs_id, dataframe, covariates, D, weights, law_sojourn),
       error = function(e) NA_real_   # guard against empty leaves
     )
   }, numeric(1))
@@ -57,21 +57,21 @@ oob_score <- function(tree, oob_ids, dataframe, covariates, D, law_sojourn) {
   mean(scores, na.rm = TRUE)
 }
 
-MDA <- function(forest, covariate_name, dataframe, covariates, D, law_sojourn) {
+MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_sojourn) {
   all_ids <- unique(dataframe$id)
   
   decreases <- vapply(forest, function(tree) {
     oob_ids <- setdiff(all_ids, tree$population)
     if (length(oob_ids) == 0) return(NA_real_)
     
-    base_score <- oob_score(tree, oob_ids, dataframe, covariates, D, law_sojourn)
+    base_score <- oob_score(tree, oob_ids, dataframe, covariates, D, weights, law_sojourn)
     
     # Permute the target covariate for OOB observations only
     covariates_permuted <- covariates
     covariates_permuted[oob_ids, covariate_name] <- 
       sample(covariates[oob_ids, covariate_name])
     
-    perm_score <- oob_score(tree, oob_ids, dataframe, covariates_permuted, D, law_sojourn)
+    perm_score <- oob_score(tree, oob_ids, dataframe, covariates_permuted, D, weights, law_sojourn)
     
     # Positive = permutation hurt = covariate was useful
     perm_score - base_score
@@ -82,10 +82,16 @@ MDA <- function(forest, covariate_name, dataframe, covariates, D, law_sojourn) {
 
 
 # Rank all covariates
-MDA_all <- function(forest, dataframe, covariates, D, law_sojourn) {
+MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
+  # Compute the estimators for each leaf of each tree
+  forest <- lapply(forest, attach_leaf_estimators, dataframe, 
+                   D, weights, law_sojourn)
+  
+  # Then compute importance for each covariate
   importance <- vapply(names(covariates), function(cov) {
-    MDA(forest, cov, dataframe, covariates, D, law_sojourn)
+    MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)
   }, numeric(1))
   
+  # And rank them
   sort(importance, decreasing = TRUE)
 }
