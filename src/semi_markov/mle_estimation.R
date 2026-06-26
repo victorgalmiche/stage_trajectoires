@@ -111,12 +111,14 @@ mle_P <- function(dataframe, D, weights=NULL) {
   P <- matrix(0, nrow=D, ncol=D)
   P[as.integer(names(counts))] <- counts
     
-  # Force diagonal to 0 (semi-Markov: no self-transitions)
-  diag(P) <- 0
-  
   # Normalize each row by off-diagonal sum (closed-form MLE under constraint)
   row_sums <- rowSums(P)
-  row_sums[row_sums == 0] <- Inf  # to get 0 for unvisited states
+  
+  # To get 1/(D-1) for unvisited states
+  P[row_sums==0, ] = 1
+  diag(P) <- 0 # Force diagonal to be 0
+  row_sums[row_sums == 0] <- D-1  
+  
   P / row_sums
 }
 
