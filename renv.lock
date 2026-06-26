@@ -90,6 +90,30 @@
       "Maintainer": "Martin Maechler <mmaechler+Matrix@gmail.com>",
       "Repository": "CRAN"
     },
+    "PCAmixdata": {
+      "Package": "PCAmixdata",
+      "Version": "3.1",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Multivariate Analysis of Mixed Data",
+      "Authors@R": "c(person(\"Marie\", \"Chavent\", role = c(\"aut\", \"cre\"), email = \"Marie.Chavent@u-bordeaux.fr\"), person(\"Vanessa\", \"Kuentz\", role = \"aut\"), person(\"Amaury\", \"Labenne\", role = \"aut\"), person(\"Benoit\", \"Liquet\", role = \"aut\"), person(\"Jerome\", \"Saracco\", role = \"aut\"))",
+      "Author": "Marie Chavent [aut, cre], Vanessa Kuentz [aut], Amaury Labenne [aut], Benoit Liquet [aut], Jerome Saracco [aut]",
+      "Maintainer": "Marie Chavent <Marie.Chavent@u-bordeaux.fr>",
+      "Description": "Implements principal component analysis, orthogonal rotation and multiple factor analysis for a mixture of quantitative and qualitative variables.",
+      "Imports": [
+        "graphics"
+      ],
+      "License": "GPL (>= 2.0)",
+      "RoxygenNote": "6.0.1",
+      "Suggests": [
+        "knitr",
+        "rmarkdown"
+      ],
+      "VignetteBuilder": "knitr",
+      "NeedsCompilation": "no",
+      "Repository": "CRAN",
+      "Encoding": "UTF-8"
+    },
     "R6": {
       "Package": "R6",
       "Version": "2.6.1",

@@ -20,6 +20,7 @@ mean(is.na(individus))
 library(PCAmixdata)
 
 individus_clean <- individus[, colSums(is.na(individus)) == 0]
+individus_clean <- individus_clean[, colSums(individus_clean=="") == 0]
 cols_quanti <- names(individus_clean)[sapply(individus_clean, is.numeric)]
 cols_quali  <- names(individus_clean)[sapply(individus_clean, function(x)
 is.character(x) || is.factor(x))]
@@ -36,13 +37,15 @@ zero_var <- cols_quanti[sapply(individus_clean[cols_quanti],
 cat("Variance nulle :", zero_var, "\n") 
 
 # Variables quali avec 1 seule modalité (inutiles) 
-unique_modal <- cols_quali[sapply(df_clean[cols_quali], 
+unique_modal <- cols_quali[sapply(individus_clean[cols_quali], 
                                   function(x) nlevels(x) < 2)] 
 cat("Modalité unique :", unique_modal, "\n") 
 
 # Supprimer ces colonnes 
 cols_quanti <- setdiff(cols_quanti, zero_var) 
 cols_quali <- setdiff(cols_quali, unique_modal)
+
+# Supprimer IDENT et pondef
 
 
 # Blocs finaux 
