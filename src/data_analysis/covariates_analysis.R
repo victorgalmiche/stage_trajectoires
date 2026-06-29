@@ -19,11 +19,16 @@ mean(is.na(individus))
 
 library(PCAmixdata)
 
+# Enlever les colonnes avec NA et ""
 individus_clean <- individus[, colSums(is.na(individus)) == 0]
 individus_clean <- individus_clean[, colSums(individus_clean=="") == 0]
 cols_quanti <- names(individus_clean)[sapply(individus_clean, is.numeric)]
 cols_quali  <- names(individus_clean)[sapply(individus_clean, function(x)
 is.character(x) || is.factor(x))]
+
+# Supprimer IDENT et pondef
+cols_quanti <- setdiff(cols_quanti, c("pondef")) 
+cols_quali <- setdiff(cols_quali, c("IDENT"))
 
 cat("Quantitatives :", cols_quanti, "\n")
 cat("Qualitatives  :", cols_quali,  "\n")
@@ -41,11 +46,16 @@ unique_modal <- cols_quali[sapply(individus_clean[cols_quali],
                                   function(x) nlevels(x) < 2)] 
 cat("Modalité unique :", unique_modal, "\n") 
 
+# Histogramme du nombre de modalités des colonnes quanti
+hist(sapply(individus_clean[cols_quali], nlevels))
+
+too_much_modal <- cols_quali[sapply(individus_clean[cols_quali], 
+                                    function(x) nlevels(x) > 50)]
+
 # Supprimer ces colonnes 
 cols_quanti <- setdiff(cols_quanti, zero_var) 
 cols_quali <- setdiff(cols_quali, unique_modal)
-
-# Supprimer IDENT et pondef
+cols_quali <- setdiff(cols_quali, too_much_modal)
 
 
 # Blocs finaux 
@@ -59,4 +69,4 @@ cat(" -", nrow(X.quanti), "individus\n")
 # Lancer PCAmix 
 res <- PCAmix(X.quanti = as.data.frame(X.quanti), 
               X.quali = as.data.frame(X.quali), 
-              rename.level = TRUE, graph = TRUE)
+              rename.level = TRUE, graph = FALSE)
