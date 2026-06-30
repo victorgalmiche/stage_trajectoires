@@ -1,29 +1,34 @@
+source('src/data_analysis/extract_data.R')
 library(dplyr)
 library(tidyr)
-
-source('src/data_analysis/extract_data.R')
+library(MASS)
+library(TraMineR)
 
 # Assigning the id (ie the row number in individus)
 emplois$id <- match(emplois$IDENT, individus$IDENT)
 non_emplois$id <- match(non_emplois$IDENT, individus$IDENT)
 
-# Extracting the states - We use TYPESEQ and codify into integers
+# Extracting the states
+emplois$state <- as.integer(factor(emplois$CONTRAT_EMB))
+
 mapping <- c(
-  'int'=2, 'asc'=1, 'afa'=1, 'sco'=1, 'slo'=1, 'vac'=6,
-  'chc'=3, 'chl'=3, 'inc'=6, 'inl'=6, 'foc'=5, 'fol'=5, 'rep'=4
+  '05'=6, '06'=6, '11'=6, '12'=6, # job search
+  '07'=7, '08'=7, '13'=7, '14'=7, # inactivity
+  '09'=8, '10'=8, '15'=8, '16'=8, # training
+  '17'=9, '18'=9, # school
+  '21'=10 # holidays
 )
-emplois$state <- mapping[emplois$TYPESEQ]
-non_emplois$state <- mapping[non_emplois$TYPESEQ]
+non_emplois$state <- as.integer(mapping[non_emplois$CAL])
 
 # And the sojourn time
 emplois$time <- emplois$DUREE
 non_emplois$time <- non_emplois$DUREE
 
 # Merging the two dataframes to regroup emplois and non_emplois
-df_merged <- emplois |> select(id, NSEQ, state, time) |>
-  bind_rows(non_emplois |> select(id, NSEQ, state, time)) |>
+df_merged <- emplois |> dplyr::select(id, NSEQ, state, time) |>
+  bind_rows(non_emplois |> dplyr::select(id, NSEQ, state, time)) |>
   arrange(id, NSEQ) |> 
-  select(id, state, time)
+  dplyr::select(id, state, time)
 
 
 # Now, creating the trajectory dataframe used for analysis
@@ -33,8 +38,8 @@ dataframe <- dataframe[order(dataframe$group), c("id", "state", "time")]
 
 
 # Descriptive statistics
-state_labels <- c('Employment', 'Interim', 'Job Search', 
-                  'School', 'Training', 'Others')
+state_labels <- c('Non salarie', 'CDI', 'Contrat aide', 'CDD', 'Interim',
+                  'Job Search', 'Inactivity', 'Training', 'School', 'Holidays')
 df_sum <- dataframe %>%
   group_by(state) %>%
   summarise(total_time = sum(time, na.rm = TRUE))
@@ -61,19 +66,18 @@ hist(dataframe$time,
      main = 'Histogram of sojourn times')
 
 
-employment <- dataframe[dataframe$state==1, ]
-library(MASS)
-fit_exp <- fitdistr(employment$time, "exponential")
-fit_gamma <- fitdistr(employment$time, "gamma")
-fit_weibull <- fitdistr(employment$time, "weibull")
+cdi <- dataframe[dataframe$state==2, ]
+fit_exp <- fitdistr(cdi$time, "exponential")
+fit_gamma <- fitdistr(cdi$time, "gamma")
+fit_weibull <- fitdistr(cdi$time, "weibull")
 
-x_vals <- seq(0, max(employment$time), length.out = 100)
-hist(employment$time, 
+x_vals <- seq(0, max(cdi$time), length.out = 100)
+hist(cdi$time, 
      breaks = x_vals,
      freq = FALSE,
      xlab = 'Time in months', 
      ylab = 'Density', 
-     main = 'Histogram of sojourn times in employment')
+     main = 'Histogram of sojourn times in CDI')
 lines(x_vals, 
       dgamma(x_vals, shape=fit_gamma$estimate[['shape']], rate=fit_gamma$estimate[['rate']]), 
       col = "red")
@@ -84,7 +88,7 @@ lines(x_vals,
       dexp(x_vals, rate=fit_exp$estimate),
       col="blue")
 legend("top",
-       legend = c("Gamma", "Weibull", "Exponential", paste0("n = ", nrow(employment))),
+       legend = c("Gamma", "Weibull", "Exponential", paste0("n = ", nrow(cdi))),
        col    = c("red", "green", "blue", NA),
        lty    = c(1, 1, 1, NA))
 
@@ -99,7 +103,6 @@ trajectories <- dataframe %>%
 
 
 # Visualize the trajectories
-library(TraMineR)
 seq <- seqdef(trajectories, 2:80)
 par(mfrow = c(2, 2))
 seqiplot(seq, with.legend=FALSE, border=NA)
