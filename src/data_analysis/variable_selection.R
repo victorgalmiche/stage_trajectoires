@@ -1,14 +1,35 @@
 source('src/data_analysis/extract_data.R')
 
-cols_quanti <- c("Q2", "AGE10")
 
-cols_quali <- c("TYPE", "AGRI", "CFA", "CAPBE", "ANTER", "SUPER", "INFG3",
-                "IMP39", "BP3", "ERA", "MODTH", "REGETAB", "FRAETR09",
-                "Q1", "Q16", 
-                "Q25", "Q31", "SIXIEMEREG", "SIXIEMECATAEU", "SIXIEMESTATUTUU",
-                "Q33", "Q34", "Q35NEW", "BACREG", "BACTAEU", "BACSTATUTUU",
-                "Q39", "OS1", "OS3", 
-                "PHD", "ETR1", "FP1",
-                "Q50_13", "PER1", "CA7", "CA8", "CA13", "CA24", "")
+# Creating a new column w/ PHD
+mapping <- rep(1, 18)
+mapping[2:5] <- 2
+mapping[6:12] <- 3
+mapping[13:18] <- 4
+individus$PHD_NEW <- mapping[as.integer(substr(individus$PHD, 1, 2))]
 
-# SIXIEMETAU -Tranche d'aire urbaine -> à voir si quali ou quanti
+
+cols_quali <- c('Q1', 'Q2', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
+                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
+
+cols_quanti <- c('PHD_NEW', 'AGE10')
+
+
+library(PCAmixdata)
+individus_clean <- individus[, cols_quanti]
+individus_clean[cols_quali] <- lapply(individus[cols_quali], as.factor)
+
+
+# Blocs finaux 
+X.quanti <- individus_clean[cols_quanti] 
+X.quali <- individus_clean[cols_quali] 
+cat("Prêt pour PCAmix :\n") 
+cat(" -", ncol(X.quanti), "variables quantitatives\n") 
+cat(" -", ncol(X.quali), "variables qualitatives\n") 
+cat(" -", nrow(X.quanti), "individus\n") 
+
+# Lancer PCAmix 
+res <- PCAmix(X.quanti = as.data.frame(X.quanti), 
+              X.quali = as.data.frame(X.quali), 
+              rename.level = TRUE, graph = FALSE)
+
