@@ -6,6 +6,8 @@ source('src/random_forest/tree_construction.R')
 random_forest <- function(dataframe, covariates, pval_algo, 
                           n_trees=500, max_samples=1, 
                           max_features=1/3, min_leaf=5) {
+  
+  # registering the CPUs for parallelization
   cl <- makeCluster(detectCores() - 1)
   registerDoParallel(cl)
   on.exit(stopCluster(cl), add=TRUE)
@@ -26,7 +28,7 @@ random_forest <- function(dataframe, covariates, pval_algo,
   n <- length(ids)
   
   # Size of the bootstrap samples
-  boot_size <- max_samples*n
+  boot_size <- as.integer(floor(max_samples*n))
   
   # Parallelized construction of the trees 
   forest <- foreach(

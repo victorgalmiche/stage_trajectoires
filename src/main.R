@@ -53,7 +53,7 @@ alg <- function(df1, df2){
 # tree <- build_tree(traj_df, covariates, alg)
 
 # And a random forest
-rf <- random_forest(traj_df, covariates, alg, 100, 20, 5, 0.05, 5, 'sqrt', 200)
+rf <- random_forest(traj_df, covariates, alg)
 
 system.time({
   ranking_MDA <- MDA_all(rf, traj_df, covariates, D, weights, law_sojourn)
