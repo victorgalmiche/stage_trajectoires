@@ -113,22 +113,20 @@ find_best_split <- function(dataframe, covariates, min_leaf, pvalue_algo){
 
 
 # Building the tree recursively 
-build_tree <- function(dataframe, covariates, pvalue_algo, max_features, 
-                       min_obs = 20, min_leaf = 5, alpha = 0.05, 
-                       max_depth = 5, depth = 0) {
+build_tree <- function(dataframe, covariates, pvalue_algo,
+                       max_features = 1, min_leaf = 5, alpha = 1, 
+                       max_depth = Inf, depth = 0) {
   
+  # Population of the current node and its size
   population <- unique(dataframe$id)
   pop_size <- length(population)
   
-  # Stopping criterion
-  if (depth >= max_depth || pop_size < min_obs)
+  # Attaining the maximum depth
+  if (depth >= max_depth)
     return(list(type = "leaf", population = population, n = pop_size))
   
   # Random selection of features among the covariates table
-  size_sample <- switch(max_features, 
-                        sqrt = sqrt(ncol(covariates)),
-                        log2 = log2(ncol(covariates)))
-  
+  size_sample <- max_features*ncol(covariates)
   sample_cols <- sample(ncol(covariates), size = size_sample)
   sample_features <- covariates[, sample_cols]
   
@@ -158,9 +156,9 @@ build_tree <- function(dataframe, covariates, pvalue_algo, max_features,
     n = pop_size,
     split = best,
     left = build_tree(df_left, covariates, pvalue_algo, max_features, 
-                      min_obs, min_leaf, alpha, max_depth, depth + 1),
+                      min_leaf, alpha, max_depth, depth + 1),
     right = build_tree(df_right, covariates, pvalue_algo, max_features,
-                       min_obs, min_leaf, alpha, max_depth, depth + 1)
+                       min_leaf, alpha, max_depth, depth + 1)
   )
 }
 

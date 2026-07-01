@@ -4,8 +4,8 @@ library(foreach)
 source('src/random_forest/tree_construction.R')
 
 random_forest <- function(dataframe, covariates, pval_algo, 
-                          n_trees=100, min_obs, min_leaf, alpha, max_depth,
-                          max_features='sqrt', max_samples) {
+                          n_trees=500, max_samples=1, 
+                          max_features=1/3, min_leaf=5) {
   cl <- makeCluster(detectCores() - 1)
   registerDoParallel(cl)
   on.exit(stopCluster(cl), add=TRUE)
@@ -21,7 +21,14 @@ random_forest <- function(dataframe, covariates, pval_algo,
   clusterExport(cl, c("D", "weights", "law_sojourn"), 
                 envir = parent.frame())
   
+  # Listing the individuals in the dataframe and their number
   ids <- unique(dataframe$id)
+  n <- length(ids)
+  
+  # Size of the bootstrap samples
+  boot_size <- max_samples*n
+  
+  # Parallelized construction of the trees 
   forest <- foreach(
     i = 1:n_trees,
     .combine = list,
@@ -29,16 +36,19 @@ random_forest <- function(dataframe, covariates, pval_algo,
     .maxcombine = n_trees,
     .errorhandling = "remove",
     .export = c(
-      "dataframe", "covariates", "pval_algo", "ids", "max_samples",
-      "min_obs", "min_leaf", "alpha", "max_depth", "max_features")
+      "dataframe", "covariates", "pval_algo",
+      "max_features", "min_leaf", "ids", "boot_size")
   ) %dopar% { 
-    boot_ids <- sample(ids, size = max_samples, replace = TRUE)
+    
+    # Bootstrap sample
+    boot_ids <- sample(ids, size = boot_size, replace = TRUE)
     # Need to do this to keep multiple-selected ids
     idx <- unlist(lapply(boot_ids, function(id) which(dataframe$id == id)))
     bootstrap_sample <- dataframe[idx, ] 
     
+    # Tree construction 
     build_tree(bootstrap_sample, covariates, pval_algo,
-               max_features, min_obs, min_leaf, alpha, max_depth)
+               max_features, min_leaf)
   }
   
   return(forest)
