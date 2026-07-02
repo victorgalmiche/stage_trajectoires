@@ -4,15 +4,16 @@ library(tidyr)
 library(MASS)
 library(TraMineR)
 
-
-
 # Descriptive statistics
 state_labels <- c('Non salarie', 'CDI', 'Contrat aide', 'CDD', 'Interim',
                   'Job search', 'Inactivity', 'Training', 'School', 'Holidays')
+
+# Sum of sojourn times in each state
 df_sum <- dataframe %>%
   group_by(state) %>%
   summarise(total_time = sum(time, na.rm = TRUE))
 
+# Barplot of the time in each state
 barplot(df_sum$total_time,
         # log = 'y',
         names.arg = state_labels,
@@ -23,6 +24,7 @@ barplot(df_sum$total_time,
         cex.names = 0.7
 )
 
+# Barplot of the observation in each state
 barplot(table(dataframe$state), 
      names.arg = state_labels, 
      xlab = 'State', 
@@ -30,12 +32,14 @@ barplot(table(dataframe$state),
      main = 'Number of observations for each state',
      cex.names = 0.7)
 
+# Histogram of sojourn times
 hist(dataframe$time,
      xlab = 'Time in months', 
      ylab = 'Number of observations', 
      main = 'Histogram of sojourn times')
 
 
+# Histogram of sojourn times for a specific state - here CDD
 cdd <- dataframe[dataframe$state==4, ]
 fit_exp <- fitdistr(cdd$time, "exponential")
 fit_gamma <- fitdistr(cdd$time, "gamma")
@@ -61,19 +65,4 @@ legend("top",
        legend = c("Gamma", "Weibull", "Exponential", paste0("n = ", nrow(cdd))),
        col    = c("red", "green", "blue", NA),
        lty    = c(1, 1, 1, NA))
-
-
-
-
-# To obtain the trajectories
-trajectories <- dataframe %>%
-  group_by(id) %>%
-  summarise(trajectoire = list(rep(state, times = time)), .groups = "drop") %>%
-  tidyr::unnest_wider(trajectoire, names_sep = "_t")
-
-
-# Visualize the trajectories
-seq <- seqdef(trajectories, 2:80)
-par(mfrow = c(2, 2))
-seqiplot(seq, with.legend=FALSE, border=NA)
 

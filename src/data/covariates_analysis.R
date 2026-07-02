@@ -1,66 +1,12 @@
-library(haven)
-library(aws.s3)
-
-BUCKET <- 'victorgalmiche'
-FOLDER <- 'stage-trajectoires/lil-1439/lil-1439.dta/Stata'
-FILE_INDIV <- paste(FOLDER, 'g107individusvf.dta', sep='/')
-
-individus <- aws.s3::s3read_using(
-  FUN = haven::read_dta,
-  object = FILE_INDIV,
-  bucket = BUCKET,
-  opts = list("region"="")
-)
-
-colSums(is.na(individus))
-mean(is.na(individus)) 
-
-
-
+source('src/data/extract_data.R')
 library(PCAmixdata)
 
-# Enlever les colonnes avec NA et ""
-individus_clean <- individus[, colSums(is.na(individus)) == 0]
-individus_clean <- individus_clean[, colSums(individus_clean=="") == 0]
-cols_quanti <- names(individus_clean)[sapply(individus_clean, is.numeric)]
-cols_quali  <- names(individus_clean)[sapply(individus_clean, function(x)
-is.character(x) || is.factor(x))]
-
-# Supprimer IDENT et pondef
-cols_quanti <- setdiff(cols_quanti, c("pondef")) 
-cols_quali <- setdiff(cols_quali, c("IDENT"))
-
-cat("Quantitatives :", cols_quanti, "\n")
-cat("Qualitatives  :", cols_quali,  "\n")
-
-individus_clean[cols_quali] <- lapply(individus_clean[cols_quali], as.factor)
-
-
-# Colonnes avec variance nulle (inutiles pour PCA) 
-zero_var <- cols_quanti[sapply(individus_clean[cols_quanti], 
-                               function(x) var(x, na.rm = TRUE) == 0)] 
-cat("Variance nulle :", zero_var, "\n") 
-
-# Variables quali avec 1 seule modalité (inutiles) 
-unique_modal <- cols_quali[sapply(individus_clean[cols_quali], 
-                                  function(x) nlevels(x) < 2)] 
-cat("Modalité unique :", unique_modal, "\n") 
-
-# Histogramme du nombre de modalités des colonnes quanti
-hist(sapply(individus_clean[cols_quali], nlevels))
-
-too_much_modal <- cols_quali[sapply(individus_clean[cols_quali], 
-                                    function(x) nlevels(x) > 50)]
-
-# Supprimer ces colonnes 
-cols_quanti <- setdiff(cols_quanti, zero_var) 
-cols_quali <- setdiff(cols_quali, unique_modal)
-cols_quali <- setdiff(cols_quali, too_much_modal)
-
+# Histogramme du nombre de modalités des colonnes quali
+hist(sapply(covariates[cols_quali], nlevels))
 
 # Blocs finaux 
-X.quanti <- individus_clean[cols_quanti] 
-X.quali <- individus_clean[cols_quali] 
+X.quanti <- covariates[cols_quanti] 
+X.quali <- covariates[cols_quali] 
 cat("Prêt pour PCAmix :\n") 
 cat(" -", ncol(X.quanti), "variables quantitatives\n") 
 cat(" -", ncol(X.quali), "variables qualitatives\n") 

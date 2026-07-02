@@ -78,9 +78,13 @@ individus$PHD_NEW <- mapping_PHD[as.integer(substr(individus$PHD, 1, 2))]
 
 
 # Columns chosen for the covariates table
-cols_quali <- c('Q1', 'Q2', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
-                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
-cols_quanti <- c('PHD_NEW', 'AGE10')
+# cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
+#                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
+# cols_quanti <- c('PHD_NEW', 'AGE10')
+
+cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
+                'ETR1', 'PER1', 'CA13', 'CA22')
+cols_quanti <- c('PHD_NEW')
 
 # Creating of the covariates table
 covariates <- individus[, cols_quanti]

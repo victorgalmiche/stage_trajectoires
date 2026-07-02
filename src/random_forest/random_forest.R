@@ -5,7 +5,7 @@ source('src/random_forest/tree_construction.R')
 
 random_forest <- function(dataframe, covariates, pval_algo, 
                           n_trees=500, max_samples=1, 
-                          max_features=1/3, min_leaf=5) {
+                          max_features=1/3, min_leaf=5, alpha=0.1) {
   
   # registering the CPUs for parallelization
   cl <- makeCluster(detectCores() - 1)
@@ -39,7 +39,7 @@ random_forest <- function(dataframe, covariates, pval_algo,
     .errorhandling = "remove",
     .export = c(
       "dataframe", "covariates", "pval_algo",
-      "max_features", "min_leaf", "ids", "boot_size")
+      "max_features", "min_leaf", "alpha", "ids", "boot_size")
   ) %dopar% { 
     
     # Bootstrap sample
@@ -50,7 +50,7 @@ random_forest <- function(dataframe, covariates, pval_algo,
     
     # Tree construction 
     build_tree(bootstrap_sample, covariates, pval_algo,
-               max_features, min_leaf)
+               max_features, min_leaf, alpha)
   }
   
   return(forest)
