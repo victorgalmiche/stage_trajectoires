@@ -2,11 +2,12 @@
 # Split criterion: p-value of the two-sample test
 
 # Data structure:
-# - trajectories: data.frame, each row is a trajectory
+# - dataframe: data.frame, columns are id, state and time
 # - covariates: data.frame, each row are the covariate for an individual
 # - weights: vector of weights for each individual
-# For now, we don't need an id column, we give id as the row number for each individual
+# The id in dataframe refer to a row number in covariates and weights
 
+source('src/semi_markov/mle_estimation.R')
 
 # Find the best split among the different covariates
 
@@ -22,7 +23,8 @@ generate_bipartitions <- function(n_levels) {
   parts
 }
 
-best_split_categorical <- function(dataframe, covariate, min_leaf, pvalue_algo) {
+best_split_categorical <- function(dataframe, covariate, min_leaf, 
+                                   pvalue_algo, weights, D, law_sojourn) {
   best <- list(pval=1, left_levels=NULL, right_levels=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
@@ -43,7 +45,7 @@ best_split_categorical <- function(dataframe, covariate, min_leaf, pvalue_algo) 
       if (length(unique(df_left$id)) < min_leaf || 
           length(unique(df_right$id)) < min_leaf) next
       
-      pval <- pvalue_algo(df_left, df_right)
+      pval <- pvalue_algo(df_left, df_right, D, weights, law_sojourn)
       if (pval < best$pval){
         best <- list(pval=pval, 
                      left_levels=levs[partition$left], 
@@ -56,7 +58,8 @@ best_split_categorical <- function(dataframe, covariate, min_leaf, pvalue_algo) 
 }
 
 # Find the best split for a numeric variable
-best_split_numeric <- function(dataframe, covariate, min_leaf, pvalue_algo) {
+best_split_numeric <- function(dataframe, covariate, min_leaf, 
+                               pvalue_algo, weights, D, law_sojourn) {
   best <- list(pval=1, threshold=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
@@ -78,7 +81,7 @@ best_split_numeric <- function(dataframe, covariate, min_leaf, pvalue_algo) {
       if (length(unique(df_left$id)) < min_leaf || 
           length(unique(df_right$id)) < min_leaf) next
       
-      pval <- pvalue_algo(df_left, df_right)
+      pval <- pvalue_algo(df_left, df_right, D, weights, law_sojourn)
       if (pval < best$pval){
         best <- list(pval=pval, threshold=thresh)
       }
@@ -87,17 +90,20 @@ best_split_numeric <- function(dataframe, covariate, min_leaf, pvalue_algo) {
   best
 }
 
-find_best_split <- function(dataframe, covariates, min_leaf, pvalue_algo){
+find_best_split <- function(dataframe, covariates, min_leaf, 
+                            pvalue_algo, weights, D, law_sojourn){
   best <- list(pval=1)
   for (var in names(covariates)){
     covariate <- covariates[[var]] # Extracting the column of the covariate
     
     # Selecting the good type of covariate
     if (is.numeric(covariate) || is.integer(covariate)){
-      best_split <- best_split_numeric(dataframe, covariate, min_leaf, pvalue_algo)
+      best_split <- best_split_numeric(dataframe, covariate, min_leaf, 
+                                       pvalue_algo, weights, D, law_sojourn)
       split_type <- 'numeric'
     } else {
-      best_split <- best_split_categorical(dataframe, covariate, min_leaf, pvalue_algo)
+      best_split <- best_split_categorical(dataframe, covariate, min_leaf, 
+                                           pvalue_algo, weights, D, law_sojourn)
       split_type <- 'categorical'
     }
     
@@ -113,7 +119,8 @@ find_best_split <- function(dataframe, covariates, min_leaf, pvalue_algo){
 
 
 # Building the tree recursively 
-build_tree <- function(dataframe, covariates, pvalue_algo,
+build_tree <- function(dataframe, covariates, weights, 
+                       D, law_sojourn, pvalue_algo,
                        max_features = 1, min_leaf = 5, alpha = 1, 
                        max_depth = Inf, depth = 0) {
   
@@ -122,8 +129,10 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   pop_size <- length(population)
   
   # Attaining the maximum depth
-  if (depth >= max_depth)
-    return(list(type = "leaf"))
+  if (depth >= max_depth) {
+    estimation <- mle_fit(dataframe, D, weights, law_sojourn)
+    return(list(type = "leaf", estimator = estimation$estimator))
+  }
   
   # Random selection of features among the covariates table
   size_sample <- max_features*ncol(covariates)
@@ -131,12 +140,15 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   sample_features <- covariates[, sample_cols]
   
   # Finding the best split
-  best <- find_best_split(dataframe, sample_features, min_leaf, pvalue_algo)
+  best <- find_best_split(dataframe, sample_features, min_leaf, 
+                          pvalue_algo, weights, D, law_sojourn)
   
   # No significant split
-  if (is.null(best$var) || best$pval >= alpha)
-    return(list(type = "leaf"))
-  
+  if (is.null(best$var) || best$pval >= alpha) {
+    estimation <- mle_fit(dataframe, D, weights, law_sojourn)
+    return(list(type = "leaf", estimator = estimation$estimator))
+  }
+    
   # Split and recursively construct the subtree
   left_ids <- switch(best$type, 
                      categorical= (which(covariates[[best$var]] %in% 
@@ -153,13 +165,16 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   list(
     type = "node",
     split = best,
-    left = build_tree(df_left, covariates, pvalue_algo, max_features, 
-                      min_leaf, alpha, max_depth, depth + 1),
-    right = build_tree(df_right, covariates, pvalue_algo, max_features,
-                       min_leaf, alpha, max_depth, depth + 1)
+    left = build_tree(df_left, covariates, weights, 
+                      D, law_sojourn, pvalue_algo, 
+                      max_features, min_leaf, alpha, 
+                      max_depth, depth + 1),
+    right = build_tree(df_right, covariates, weights,
+                       D, law_sojourn, pvalue_algo, 
+                       max_features, min_leaf, alpha, 
+                       max_depth, depth + 1)
   )
 }
-
 
 
 # Function to get the leaf an observation belongs to
@@ -178,10 +193,9 @@ get_leaf <- function(node, obs) {
   if (goes_left) get_leaf(node$left, obs) else get_leaf(node$right, obs)
 }
 
-attach_leaf_population <- function(node, dataframe, covariates) {
-  if (node$type == 'leaf') {
-    node$population <- unique(dataframe$id)
-  } else {
+attach_node_population <- function(node, dataframe, covariates) {
+  node$population <- unique(dataframe$id)
+  if (node$type == 'node') {
     left_ids <- switch(node$split$type, 
                        categorical= (which(covariates[[node$split$var]] %in% 
                                              node$split$left_levels)),

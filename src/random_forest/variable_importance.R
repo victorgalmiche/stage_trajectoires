@@ -1,4 +1,3 @@
-source('src/semi_markov/mle_estimation.R')
 source('src/random_forest/tree_construction.R')
 
 
@@ -10,7 +9,8 @@ MDI_tree <- function(node, covariate_name, n_root) {
   }
   
   node_contribution <- if (node$split$var == covariate_name){
-    (node$n/n_root)*(1-node$split$pval)
+    n <- length(node$population)
+    (n/n_root)*(1-node$split$pval)
   } else {
     0
   }
@@ -27,7 +27,7 @@ MDI <- function(forest, covariate_name) {
   M <- length(forest)
   
   contributions <- vapply(forest, function(tree) {
-    n_root <- tree$n
+    n_root <- length(tree$population)
     MDI_tree(tree, covariate_name, n_root)
   }, numeric(1))
   
@@ -35,7 +35,10 @@ MDI <- function(forest, covariate_name) {
 }
 
 # Rank all covariates by importance
-MDI_all <- function(forest, covariates) {
+MDI_all <- function(forest, dataframe, covariates) {
+  # Compute the population in each node
+  forest <- lapply(forest, attach_node_population, dataframe, covariates)
+  
   importance <- vapply(names(covariates), function(cov) {
     MDI(forest, cov)
   }, numeric(1))
@@ -46,7 +49,8 @@ MDI_all <- function(forest, covariates) {
 
 
 ### MDA 
-oob_score <- function(tree, oob_ids, dataframe, covariates, D, weights, law_sojourn) {
+oob_score <- function(tree, oob_ids, dataframe, covariates,
+                      D, weights, law_sojourn) {
   scores <- vapply(oob_ids, function(obs_id) {
     tryCatch(
       neg_log_lik(tree, obs_id, dataframe, covariates, D, weights, law_sojourn),
@@ -57,7 +61,8 @@ oob_score <- function(tree, oob_ids, dataframe, covariates, D, weights, law_sojo
   mean(scores, na.rm = TRUE)
 }
 
-MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_sojourn) {
+MDA <- function(forest, covariate_name, dataframe, covariates, 
+                D, weights, law_sojourn) {
   all_ids <- unique(dataframe$id)
   
   decreases <- vapply(forest, function(tree) {
@@ -70,7 +75,7 @@ MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_s
     # Permute the target covariate for OOB observations only
     covariates_permuted <- covariates
     covariates_permuted[oob_ids, covariate_name] <- 
-      sample(covariates[oob_ids, covariate_name])
+      sample(covariates[oob_ids, covariate_name, drop=TRUE])
     
     perm_score <- oob_score(tree, oob_ids, dataframe, 
                             covariates_permuted, D, weights, law_sojourn)
@@ -85,12 +90,6 @@ MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_s
 
 # Rank all covariates
 MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
-  # Compute the population in each leaf
-  forest <- lapply(forest, attach_leaf_population, dataframe, covariates)
-  # Compute the estimators for each leaf of each tree
-  forest <- lapply(forest, attach_leaf_estimators, dataframe, 
-                   D, weights, law_sojourn)
-  
   # Then compute importance for each covariate
   importance <- vapply(names(covariates), function(cov) {
     MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)

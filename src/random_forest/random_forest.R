@@ -4,7 +4,7 @@ library(foreach)
 source('src/random_forest/tree_construction.R')
 
 random_forest <- function(dataframe, covariates, weights, 
-                          D, law_sojourn, 
+                          D, law_sojourn, pvalue_algo,
                           n_trees=500, max_samples=1, 
                           max_features=1/3, min_leaf=5, alpha=0.1) {
   
@@ -35,7 +35,7 @@ random_forest <- function(dataframe, covariates, weights,
     .maxcombine = n_trees,
     .errorhandling = "pass",
     .export = c(
-      "dataframe", "covariates", "weights", "D", "law_sojourn",
+      "dataframe", "covariates", "weights", "D", "law_sojourn", "pvalue_algo",
       "max_features", "min_leaf", "alpha", "ids", "boot_size")
   ) %dopar% { 
     
@@ -55,11 +55,11 @@ random_forest <- function(dataframe, covariates, weights,
     alg <- function(df1, df2) {
       permutation_test(df1, df2, D, boot_weights, law_sojourn)
     }
-
     
     # Tree construction 
-    tree <- build_tree(bootstrap_sample, covariates, alg,
-               max_features, min_leaf, alpha)
+    tree <- build_tree(bootstrap_sample, boot_covariates, boot_weights,
+                       D, law_sojourn, pvalue_algo,
+                       max_features, min_leaf, alpha)
     tree$oob_ids <- setdiff(ids, boot_ids)
     tree
   }
