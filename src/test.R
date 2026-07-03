@@ -29,50 +29,44 @@ library(TraMineR)
 
 # mvad data
 data(mvad)
-trajectories <- mvad[, 17:86]
-covariates <- mvad[, 3:14]
-traj_df <- traj_to_df(trajectories)
+trajectories_mvad <- mvad[, 17:86]
+covariates_mvad <- mvad[, 3:14]
+traj_df <- traj_to_df(trajectories_mvad)
 
 # Number of states 
-D <- 6
+D_mvad <- 6
 
-weights <- mvad[, 2]
+weights_mvad <- mvad[, 2]
 law_sojourn <- 'exponential'
-
-# Function for p_value computation
-alg <- function(df1, df2){
-  likelihood_ratio_test(df1, df2, D, weights, law_sojourn)
-  #permutation_test(df1, df2, D, weights, law_sojourn)
-}
-
 
 # Tree construction
 # tree <- build_tree(traj_df, covariates, alg)
 
 # And a random forest
-rf <- random_forest(traj_df, covariates, alg)
+rf <- random_forest(traj_df, covariates_mvad, weights_mvad,
+                    D_mvad, law_sojourn, permutation_test)
 
 system.time({
-  ranking_MDA <- MDA_all(rf, traj_df, covariates, D, weights, law_sojourn)
+  ranking_MDA_mvad <- MDA_all(rf, traj_df, covariates_mvad,
+                              D_mvad, weights_mvad, law_sojourn)
 })
 
 
 system.time({
-  ranking_MDI <- MDI_all(rf, covariates)
+  ranking_MDI_mvad <- MDI_all(rf, traj_df, covariates_mvad)
 })
 
 
 
-barplot(ranking_MDA, 
+barplot(ranking_MDA_mvad, 
         main = "Chi^2 test and Exponential Law",
         ylab = "MDA", 
         col = "blue", 
         las = 2)
 
-barplot(ranking_MDI, 
-        main = "Chi^2 test and Exponential Law",
+barplot(ranking_MDI_mvad, 
+        main = "Permutation test and Exponential Law",
         ylab = "MDI", 
-        ylim = c(0,1),
         col = "blue", 
         las = 2)
 
