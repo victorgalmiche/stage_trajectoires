@@ -3,7 +3,8 @@ library(foreach)
 
 source('src/random_forest/tree_construction.R')
 
-random_forest <- function(dataframe, covariates, pval_algo, 
+random_forest <- function(dataframe, covariates, weights, 
+                          D, law_sojourn, 
                           n_trees=500, max_samples=1, 
                           max_features=1/3, min_leaf=5, alpha=0.1) {
   
@@ -19,10 +20,6 @@ random_forest <- function(dataframe, covariates, pval_algo,
     source('src/two_samples_test.R')
   })
   
-  # Export variables from caller's environment that alg() needs
-  clusterExport(cl, c("D", "weights", "law_sojourn"), 
-                envir = parent.frame())
-  
   # Listing the individuals in the dataframe and their number
   ids <- unique(dataframe$id)
   n <- length(ids)
@@ -36,9 +33,9 @@ random_forest <- function(dataframe, covariates, pval_algo,
     .combine = list,
     .multicombine = TRUE,
     .maxcombine = n_trees,
-    .errorhandling = "remove",
+    .errorhandling = "pass",
     .export = c(
-      "dataframe", "covariates", "pval_algo",
+      "dataframe", "covariates", "weights", "D", "law_sojourn",
       "max_features", "min_leaf", "alpha", "ids", "boot_size")
   ) %dopar% { 
     
@@ -46,11 +43,25 @@ random_forest <- function(dataframe, covariates, pval_algo,
     boot_ids <- sample(ids, size = boot_size, replace = TRUE)
     # Need to do this to keep multiple-selected ids
     idx <- unlist(lapply(boot_ids, function(id) which(dataframe$id == id)))
-    bootstrap_sample <- dataframe[idx, ] 
+    bootstrap_sample <- do.call(rbind, lapply(seq_along(boot_ids), function(i) {
+      d <- dataframe[dataframe$id == boot_ids[i], ]
+      d$id <- i          # new unique id per draw, 1:boot_size
+      d
+    }))
+    
+    # Keep only the interesting weights and covariates and reorder
+    boot_weights <- if (is.null(weights)) NULL else weights[boot_ids]
+    boot_covariates <- covariates[boot_ids, , drop = FALSE]
+    alg <- function(df1, df2) {
+      permutation_test(df1, df2, D, boot_weights, law_sojourn)
+    }
+
     
     # Tree construction 
-    build_tree(bootstrap_sample, covariates, pval_algo,
+    tree <- build_tree(bootstrap_sample, covariates, alg,
                max_features, min_leaf, alpha)
+    tree$oob_ids <- setdiff(ids, boot_ids)
+    tree
   }
   
   return(forest)

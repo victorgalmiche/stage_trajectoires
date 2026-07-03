@@ -22,14 +22,13 @@ plot_tree <- function(tree, show_pval = TRUE) {
   # Libellé du nœud (variable + n, sans le seuil qui passe maintenant sur les arêtes)
   node_label <- function(noeud) {
     if (noeud$type == "leaf") {
-      return(sprintf("Feuille\nn = %d", noeud$n))
+      return(sprintf("Feuille"))
     }
     split <- noeud$split
     label <- split$var
     if (show_pval && !is.null(split$pval)) {
       label <- paste0(label, sprintf("\n(p=%.3g)", split$pval))
     }
-    paste0(label, sprintf("\nn = %d", noeud$n))
   }
   
   # Libellés gauche/droite pour les arêtes sortant d'un nœud de split
@@ -70,7 +69,7 @@ plot_tree <- function(tree, show_pval = TRUE) {
   
   parcourir(tree)
   
-  g <- graph(edges)
+  g <- make_graph(edges)
   V(g)$label <- labels[V(g)$name]
   V(g)$color <- colors[V(g)$name]
   E(g)$label <- edge_labels

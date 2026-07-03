@@ -123,7 +123,7 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   
   # Attaining the maximum depth
   if (depth >= max_depth)
-    return(list(type = "leaf", population = population, n = pop_size))
+    return(list(type = "leaf"))
   
   # Random selection of features among the covariates table
   size_sample <- max_features*ncol(covariates)
@@ -135,7 +135,7 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   
   # No significant split
   if (is.null(best$var) || best$pval >= alpha)
-    return(list(type = "leaf", population = population, n = pop_size))
+    return(list(type = "leaf"))
   
   # Split and recursively construct the subtree
   left_ids <- switch(best$type, 
@@ -152,8 +152,6 @@ build_tree <- function(dataframe, covariates, pvalue_algo,
   
   list(
     type = "node",
-    population = population,
-    n = pop_size,
     split = best,
     left = build_tree(df_left, covariates, pvalue_algo, max_features, 
                       min_leaf, alpha, max_depth, depth + 1),
@@ -178,6 +176,27 @@ get_leaf <- function(node, obs) {
   }
   
   if (goes_left) get_leaf(node$left, obs) else get_leaf(node$right, obs)
+}
+
+attach_leaf_population <- function(node, dataframe, covariates) {
+  if (node$type == 'leaf') {
+    node$population <- unique(dataframe$id)
+  } else {
+    left_ids <- switch(node$split$type, 
+                       categorical= (which(covariates[[node$split$var]] %in% 
+                                             node$split$left_levels)),
+                       numeric = (which(covariates[[node$split$var]] < node$split$threshold)))
+    right_ids <- switch(node$split$type, 
+                        categorical= (which(covariates[[node$split$var]] %in% 
+                                              node$split$right_levels)),
+                        numeric = (which(covariates[[node$split$var]] >= node$split$threshold)))
+    
+    df_left <- subset(dataframe, id %in% left_ids)
+    df_right <- subset(dataframe, id %in% right_ids)
+    node$left <- attach_leaf_population(node$left, df_left, covariates)
+    node$right <- attach_leaf_population(node$right, df_right, covariates)
+  }
+  node
 }
 
 # Attach the Semi-Markov estimator to each leaf

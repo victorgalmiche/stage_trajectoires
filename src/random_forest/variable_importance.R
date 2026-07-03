@@ -61,17 +61,19 @@ MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_s
   all_ids <- unique(dataframe$id)
   
   decreases <- vapply(forest, function(tree) {
-    oob_ids <- setdiff(all_ids, tree$population)
+    oob_ids <- tree$oob_ids
     if (length(oob_ids) == 0) return(NA_real_)
     
-    base_score <- oob_score(tree, oob_ids, dataframe, covariates, D, weights, law_sojourn)
+    base_score <- oob_score(tree, oob_ids, dataframe, 
+                            covariates, D, weights, law_sojourn)
     
     # Permute the target covariate for OOB observations only
     covariates_permuted <- covariates
     covariates_permuted[oob_ids, covariate_name] <- 
       sample(covariates[oob_ids, covariate_name])
     
-    perm_score <- oob_score(tree, oob_ids, dataframe, covariates_permuted, D, weights, law_sojourn)
+    perm_score <- oob_score(tree, oob_ids, dataframe, 
+                            covariates_permuted, D, weights, law_sojourn)
     
     # Positive = permutation hurt = covariate was useful
     perm_score - base_score
@@ -83,6 +85,8 @@ MDA <- function(forest, covariate_name, dataframe, covariates, D, weights, law_s
 
 # Rank all covariates
 MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
+  # Compute the population in each leaf
+  forest <- lapply(forest, attach_leaf_population, dataframe, covariates)
   # Compute the estimators for each leaf of each tree
   forest <- lapply(forest, attach_leaf_estimators, dataframe, 
                    D, weights, law_sojourn)
