@@ -135,7 +135,7 @@ build_tree <- function(dataframe, covariates, weights,
   }
   
   # Random selection of features among the covariates table
-  size_sample <- max_features*ncol(covariates)
+  size_sample <- as.integer(floor(max_features*ncol(covariates)))
   sample_cols <- sample(ncol(covariates), size = size_sample)
   sample_features <- covariates[, sample_cols]
   
@@ -187,7 +187,7 @@ get_leaf <- function(node, obs) {
   goes_left <- if (node$split$type == 'categorical') {
     val %in% node$split$left_levels
   } else {
-    val <= node$split$threshold       
+    val < node$split$threshold       
   }
   
   if (goes_left) get_leaf(node$left, obs) else get_leaf(node$right, obs)
@@ -207,8 +207,8 @@ attach_node_population <- function(node, dataframe, covariates) {
     
     df_left <- subset(dataframe, id %in% left_ids)
     df_right <- subset(dataframe, id %in% right_ids)
-    node$left <- attach_leaf_population(node$left, df_left, covariates)
-    node$right <- attach_leaf_population(node$right, df_right, covariates)
+    node$left <- attach_node_population(node$left, df_left, covariates)
+    node$right <- attach_node_population(node$right, df_right, covariates)
   }
   node
 }

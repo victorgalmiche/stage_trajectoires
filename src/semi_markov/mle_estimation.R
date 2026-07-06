@@ -267,12 +267,6 @@ mle_omega_exponential <- function(dataframe, D, weights=NULL){
       w <- weights[df_s$id]
     }
     
-    # If less than 2 observations, impossible to estimate
-    if (nrow(df_s) < 2) {
-      warning(paste('State', s, 'has less than 2 valid observations'))
-      next
-    }
-    
     # MLE for exponential distribution
     omega[s, 'rate'] <- sum(w)/sum(w*df_s$time)
   }

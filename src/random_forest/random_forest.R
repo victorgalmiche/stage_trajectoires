@@ -52,9 +52,6 @@ random_forest <- function(dataframe, covariates, weights,
     # Keep only the interesting weights and covariates and reorder
     boot_weights <- if (is.null(weights)) NULL else weights[boot_ids]
     boot_covariates <- covariates[boot_ids, , drop = FALSE]
-    alg <- function(df1, df2) {
-      permutation_test(df1, df2, D, boot_weights, law_sojourn)
-    }
     
     # Tree construction 
     tree <- build_tree(bootstrap_sample, boot_covariates, boot_weights,

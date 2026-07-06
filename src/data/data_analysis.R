@@ -1,4 +1,4 @@
-source('src/data_analysis/extract_data.R')
+source('src/data/extract_data.R')
 library(dplyr)
 library(tidyr)
 library(MASS)

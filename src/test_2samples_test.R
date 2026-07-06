@@ -1,7 +1,7 @@
 library(doParallel)
 library(foreach)
 
-source('src/synthesis_data_generation.R')
+source('src/semi_markov/synthesis_data_generation.R')
 source('src/two_samples_test.R')
 
 D <- 4; n1 <- 30; n2 <- 30; M <- 5; nb_datasets <- 500
