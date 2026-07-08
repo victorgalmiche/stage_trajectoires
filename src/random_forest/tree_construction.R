@@ -141,8 +141,8 @@ build_tree <- function(dataframe, covariates, weights,
   best <- find_best_split(dataframe, sample_features, min_leaf, 
                           pvalue_algo, weights, D, law_sojourn)
   
-  # No significant split
-  if (is.null(best$var) || best$pval >= alpha) {
+  # No split found
+  if (is.null(best$var)) {
     estimation <- mle_fit(dataframe, D, weights, law_sojourn)
     return(list(type = "leaf", estimator = estimation$estimator))
   }
@@ -159,6 +159,15 @@ build_tree <- function(dataframe, covariates, weights,
   
   df_left <- subset(dataframe, id %in% left_ids)
   df_right <- subset(dataframe, id %in% right_ids)
+  
+  # Recomputing w/ permutation test
+  best$pval <- permutation_test(df_left, df_right, D, weights, law_sojourn)
+  
+  # Split found is not significant
+  if (best$pval >= alpha){
+    estimation <- mle_fit(dataframe, D, weights, law_sojourn)
+    return(list(type = "leaf", estimator = estimation$estimator))
+  }
   
   list(
     type = "node",

@@ -19,7 +19,7 @@ df_PHD1 <- subset(dataframe, id %in% which(covariates$PHD_NEW==1))
 
 system.time({
   forest <- random_forest(df_PHD1, covariates, weights, 
-                          D, law_sojourn, permutation_test)
+                          D, law_sojourn, likelihood_ratio_test)
 })
 
 system.time({
