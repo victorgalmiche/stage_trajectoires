@@ -1,8 +1,6 @@
 library(doParallel)
 library(foreach)
 
-source('src/random_forest/tree_construction.R')
-
 random_forest <- function(dataframe, covariates, weights, 
                           D, law_sojourn, pvalue_algo,
                           n_trees=500, max_samples=1, 

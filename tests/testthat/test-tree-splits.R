@@ -13,6 +13,8 @@ tree <- build_tree(trajectories, covariates, weights,
                    min_leaf=min_leaf)
 
 tree_with_pop <- attach_node_population(tree, trajectories, covariates)
+tree_with_new_estimators <- attach_leaf_estimators(tree_with_pop, trajectories,
+                                                   D, weights, law_sojourn)
 
 test_that("no leaf with more than min_leaf", {
   for (i in seq_len(n)){
@@ -21,5 +23,13 @@ test_that("no leaf with more than min_leaf", {
   }
 })
 
+test_that("verification of the estimators in the built tree", {
+  for (i in seq_len(n)){
+    leaf <- get_leaf(tree, covariates[i, ])
+    leaf_2 <- get_leaf(tree_with_new_estimators, covariates[i, ])
+    expect_equal(leaf_2$estimator, leaf$estimator)
+  }
+})
 
-# tree_with_new_estimators <- attach_leaf
+
+

@@ -1,8 +1,16 @@
+
 source('src/data/extract_data.R')
+
+source('src/semi_markov/synthesis_data_generation.R')
+source('src/semi_markov/mle_estimation.R')
+
 source('src/two_samples_test.R')
+source('src/visualization.R')
+
+source('src/random_forest/tree_construction.R')
 source('src/random_forest/random_forest.R')
 source('src/random_forest/variable_importance.R')
-source('src/visualization.R')
+
 
 law_sojourn <- 'exponential'
 

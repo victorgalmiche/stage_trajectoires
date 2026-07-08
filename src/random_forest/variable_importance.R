@@ -1,6 +1,3 @@
-source('src/random_forest/tree_construction.R')
-
-
 ### MDI
 # We begin by using 1-pvalue as a proxy for the impurity
 MDI_tree <- function(node, covariate_name, n_root) {

@@ -7,8 +7,6 @@
 # - weights: vector of weights for each individual
 # The id in dataframe refer to a row number in covariates and weights
 
-source('src/semi_markov/mle_estimation.R')
-
 # Find the best split among the different covariates
 
 # Helper function to generate bipartitions 
