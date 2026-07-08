@@ -2,7 +2,7 @@ n <- 30
 D <- 3
 law_sojourn <- "exponential"
 
-trajectories <- make_toy_trajectories(n)
+trajectories <- make_toy_trajectories(n, D)
 covariates <- make_toy_covariates(n)
 weights <- rep(1, n)
 
@@ -19,7 +19,7 @@ tree_with_new_estimators <- attach_leaf_estimators(tree_with_pop, trajectories,
 test_that("no leaf with more than min_leaf", {
   for (i in seq_len(n)){
     leaf <- get_leaf(tree_with_pop, covariates[i, ])
-    expect_lt(length(leaf$population), min_leaf)
+    expect_gte(length(leaf$population), min_leaf)
   }
 })
 
