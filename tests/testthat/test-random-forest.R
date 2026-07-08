@@ -27,8 +27,8 @@ test_that("oob ids are present at each tree", {
   }
 })
 
-test_that("oob ids are greater than 0", {
+test_that("number of oob ids is > 0", {
   for (i in seq_len(n_trees)){
-    expect_gt(forest[[i]]$oob_ids, 0)
+    expect_gt(length(forest[[i]]$oob_ids), 0)
   }
 })
