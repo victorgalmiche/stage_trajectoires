@@ -8,7 +8,7 @@ source_from_root("src/semi_markov/mle_estimation.R")
 source_from_root("src/semi_markov/synthesis_data_generation.R")
 source_from_root("src/two_samples_test.R")
 source_from_root("src/random_forest/tree_construction.R")
-source_form_root("src/random_forest/random_forest.R")
+source_from_root("src/random_forest/random_forest.R")
 
 # --- fixtures ---
 make_simple_df <- function() {
