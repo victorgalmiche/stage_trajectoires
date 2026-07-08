@@ -21,7 +21,13 @@ test_that("checking that trees are actual trees", {
   }
 })
 
-test_that("oob ids are present and greater than 0", {
+test_that("oob ids are present at each tree", {
+  for (i in seq_len(n_trees)){
+    expect_no_error(forest[[i]]$oob_ids)
+  }
+})
+
+test_that("oob ids are greater than 0", {
   for (i in seq_len(n_trees)){
     expect_gt(forest[[i]]$oob_ids, 0)
   }
