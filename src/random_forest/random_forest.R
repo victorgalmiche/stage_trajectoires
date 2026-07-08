@@ -4,19 +4,23 @@ library(foreach)
 random_forest <- function(dataframe, covariates, weights, 
                           D, law_sojourn, pvalue_algo,
                           n_trees=500, max_samples=1, 
-                          max_features=1/3, min_leaf=5, alpha=0.1) {
+                          max_features=1/3, min_leaf=5, alpha=0.1, 
+                          parallel=TRUE, n_cores=detectCores()-1) {
   
-  # registering the CPUs for parallelization
-  cl <- makeCluster(detectCores() - 1)
-  registerDoParallel(cl)
-  on.exit(stopCluster(cl), add=TRUE)
-  
-  clusterEvalQ(cl, {
-    source('src/semi_markov/synthesis_data_generation.R')
-    source('src/semi_markov/mle_estimation.R')
-    source('src/random_forest/tree_construction.R')
-    source('src/two_samples_test.R')
-  })
+  # Organizing the parallelization framework
+  if (parallel) {
+    cl <- makeCluster(n_cores)
+    registerDoParallel(cl)
+    on.exit(stopCluster(cl), add = TRUE)
+    clusterEvalQ(cl, {
+      source('src/semi_markov/synthesis_data_generation.R')
+      source('src/semi_markov/mle_estimation.R')
+      source('src/random_forest/tree_construction.R')
+      source('src/two_samples_test.R')
+    })
+  } else {
+    foreach::registerDoSEQ()
+  }
   
   # Listing the individuals in the dataframe and their number
   ids <- unique(dataframe$id)

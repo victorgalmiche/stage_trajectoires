@@ -9,7 +9,7 @@ weights <- rep(1, n)
 n_trees <- 5
 forest <- random_forest(trajectories, covariates, weights,
                         D, law_sojourn, likelihood_ratio_test, 
-                        n_trees)
+                        n_trees, parallel=FALSE)
 
 test_that("correct number of trees", {
   expect_length(forest, n_trees)
