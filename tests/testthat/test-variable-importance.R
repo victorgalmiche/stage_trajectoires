@@ -80,7 +80,7 @@ test_that("MDA detects an informative variable", {
   # X1 is exactly the initial state - 0 loss w/ use of X1 for prediction
   dataframe <- data.frame(id=rep(1:n, each=2), 
                           state=rep(0, 2*n), 
-                          time=rep(1, 2*n))
+                          time=rexp(2*n))
   dataframe$state[2*1:n -1] <- covariates$X1
   dataframe$state[2*1:n] <- 4
   
