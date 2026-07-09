@@ -77,7 +77,7 @@ test_that("MDA detects an informative variable", {
   law_sojourn <- 'exponential'
   covariates <- data.frame(X1=sample.int(3, n, replace=TRUE), X2=rnorm(n))
   # X1 is exactly the state - 0 loss w/ use of X1 for prediction
-  dataframe <- data.frame(id=1:n, state=covariates$X1, time=rep(1, n))
+  dataframe <- data.frame(id=1:n, state=covariates$X1, time=rexp(n))
   weights <- rep(1, n)
   
   tree <- build_tree(subset(dataframe, id<=20), covariates, weights,
