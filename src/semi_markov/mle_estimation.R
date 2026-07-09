@@ -260,6 +260,11 @@ mle_omega_exponential <- function(dataframe, D, weights=NULL){
     # Extracting the corresponding rows
     df_s <- dataframe[dataframe$state==s,]
     
+    if (nrow(df_s) < 1){
+      warning(paste('State', s, 'has no time observations'))
+      next
+    }
+    
     # and weights
     if (is.null(weights)){
       w <- rep(1, nrow(df_s))
