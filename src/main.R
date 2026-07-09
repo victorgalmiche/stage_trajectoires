@@ -28,7 +28,7 @@ system.time({
 })
 
 system.time({
-  ranking_MDI <- MDI_all(forest, df_PHD1, covariates)
+  ranking_MDI <- MDI_all(forest, covariates)
 })
 
 barplot(ranking_MDA, 

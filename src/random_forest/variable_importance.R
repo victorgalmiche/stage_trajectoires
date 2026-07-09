@@ -6,8 +6,7 @@ MDI_tree <- function(node, covariate_name, n_root) {
   }
   
   node_contribution <- if (node$split$var == covariate_name){
-    n <- length(node$population)
-    (n/n_root)*(1-node$split$pval)
+    (node$n/n_root)*(1-node$split$pval)
   } else {
     0
   }
@@ -24,7 +23,7 @@ MDI <- function(forest, covariate_name) {
   M <- length(forest)
   
   contributions <- vapply(forest, function(tree) {
-    n_root <- length(tree$population)
+    n_root <- tree$n
     MDI_tree(tree, covariate_name, n_root)
   }, numeric(1))
   
@@ -32,10 +31,7 @@ MDI <- function(forest, covariate_name) {
 }
 
 # Rank all covariates by importance
-MDI_all <- function(forest, dataframe, covariates) {
-  # Compute the population in each node
-  forest <- lapply(forest, attach_node_population, dataframe, covariates)
-  
+MDI_all <- function(forest, covariates) {
   importance <- vapply(names(covariates), function(cov) {
     MDI(forest, cov)
   }, numeric(1))

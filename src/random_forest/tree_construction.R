@@ -171,6 +171,7 @@ build_tree <- function(dataframe, covariates, weights,
   
   list(
     type = "node",
+    n = pop_size, # For the MDI computation
     split = best,
     left = build_tree(df_left, covariates, weights, 
                       D, law_sojourn, pvalue_algo, 
