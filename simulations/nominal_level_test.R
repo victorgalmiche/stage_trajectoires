@@ -19,7 +19,7 @@ run_simulation <- function(cl, D, n1, n2, M, nb_datasets=500,
     df2 <- subset(df, id>n1)
     
     p_asymp  <- likelihood_ratio_test(df1, df2, D, law_sojourn = law_sojourn)
-    p_boot <- parametric_bootstrap(df1, df2, D, law_sojourn = law_sojourn)
+    p_boot <- parametric_bootstrap(df1, df2, D, law_sojourn = law_sojourn, M=M)
     p_perm <- permutation_test(df1, df2, D, law_sojourn = law_sojourn)
     
     c(p_asymp=p_asymp, p_boot=p_boot, p_perm=p_perm)
@@ -49,7 +49,7 @@ plot_pvalues <- function(sim_result, title = NULL) {
   lines(ecdf(sim_result$p_perm), col = "green", do.points = FALSE)
   lines(ecdf(sim_result$p_boot), col = "blue", do.points = FALSE)
   abline(a = 0, b = 1, col = "black")
-  legend("bottomright",
+  legend("topleft",
          legend = c("Chi^2", "Permutation", "Parametric Bootstrap"),
          col    = c("red", "green", "blue"),
          lty    = c(1, 1, 1))
@@ -64,7 +64,7 @@ clusterEvalQ(cl, {
   source('src/two_samples_test.R')
 })
 
-res <- run_simulation(cl, D = 4, n1 = 30, n2 = 30, M = 5, nb_datasets = 500)
+res <- run_simulation(cl, D = 10, n1 = 60, n2 = 60, M = 5, nb_datasets = 500)
 plot_pvalues(res)
 
 stopCluster(cl)
