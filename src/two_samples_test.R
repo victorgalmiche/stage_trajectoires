@@ -25,8 +25,9 @@ likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'
 }
 
 # Parametric bootstrap test 
-# !!! Not working currently because n1, n2 and M are not defined in generate_dataset_H0
-parametric_bootstrap <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100) {
+parametric_bootstrap <- function(df1, df2, D, weights=NULL, law_sojourn='gamma', R=100, M=10) {
+  n1 <- length(unique(df1$id))
+  n2 <- length(unique(df2$id))
   dataframe <- rbind(df1, df2)
   
   global_est <- mle_fit(dataframe, D, weights, law_sojourn)
