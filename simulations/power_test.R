@@ -1,58 +1,100 @@
 library(doParallel)
 library(foreach)
 
-source('src/semi_markov/synthesis_data_generation.R')
-source('src/semi_markov/mle_estimation.R')
-source('src/two_samples_test.R')
-
-law_sojourn <- 'exponential'
-theta1 <- list(alpha = c(1, 0), 
-               P = matrix(c(0, 1, 1, 0), nrow=2), 
-               omega = cbind(rate=rep(1, times=2)))
-
-nb_sets <- 100
-step <- 20
-
-p_asymp <- matrix(0, ncol=step+1, nrow=nb_sets)
-p_perm <- matrix(0, ncol=step+1, nrow=nb_sets)
-
-cl <- makeCluster(detectCores() - 1)
-registerDoParallel(cl)
-
-results <- foreach(
-  i = 1:nb_sets,
-  .combine = rbind,
-  .export = c("generate_dataset", "likelihood_ratio_test", "permutation_test")
-) %dopar% {
-  df1 <- generate_dataset(theta1, law_sojourn, n=250, M=2)
+run_simulation <- function(cl, D, n, M, nb_datasets=500, nb_steps=20,
+                           var_parameter, law_sojourn= 'exponential'){
   
-  p_asymp <- numeric(step+1)
-  p_perm <- numeric(step+1)
+  clusterExport(cl, varlist = c("D", "n", "M", "nb_steps", 
+                                "law_sojourn", "var_parameter"),
+                envir = environment())
   
-  for (k in 0:step){
-    theta2 <- list(alpha = c(1, 0), 
-                   P = matrix(c(0, 1, 1, 0), nrow=2), 
-                   omega = cbind(rate=rep(1+k/step, times=2)))
-    df2 <- generate_dataset(theta2, law_sojourn, n=250, M=2)
-    df2$id <- df2$id + 250
+  results <- foreach(i = 1:nb_datasets) %dopar% {  
     
-    p_asymp[k+1] <- likelihood_ratio_test(df1, df2, D=2, law_sojourn=law_sojourn)
-    p_perm[k+1] <- permutation_test(df1, df2, D=2, law_sojourn=law_sojourn)
+    # Theta_0 and the associated trajectories
+    theta0 <- generate_theta(D, law_sojourn)
+    df0 <- generate_dataset(theta0, law_sojourn, n, M)
     
+    # Theta_1
+    theta1 <- theta0
+    if (var_parameter=='alpha'){
+      theta1$alpha <- generate_alpha(D)
+    } 
+    if (var_parameter=='P'){
+      theta1$P <- generate_P(D)
+    }
+    if (var_parameter=='omega'){
+      theta1$omega <- generate_omega(D, law_sojourn)
+    }
+    
+    p_asymp <- numeric(nb_steps+1)
+    p_boot <- numeric(nb_steps+1)
+    p_perm <- numeric(nb_steps+1)
+    
+    for (k in 0:nb_steps){
+      t <- k/nb_steps
+      theta <- list(
+        alpha = (1-t) * theta0$alpha + t * theta1$alpha,
+        P     = (1-t) * theta0$P     + t * theta1$P,
+        omega = (1-t) * theta0$omega + t * theta1$omega
+      )
+      
+      df1 <- generate_dataset(theta, law_sojourn, n, M)
+      df1$id <- df1$id + n # To avoid collisions w/ df0
+      
+      p_asymp[k+1] <- likelihood_ratio_test(df0, df1, D, law_sojourn=law_sojourn)
+      p_boot[k+1] <- parametric_bootstrap(df0, df1, D, law_sojourn=law_sojourn, M=M)
+      p_perm[k+1] <- permutation_test(df0, df1, D, law_sojourn=law_sojourn)
+      
+    }
+    list(p_asymp=p_asymp, p_boot=p_boot, p_perm=p_perm)
   }
-  c(p_asymp, p_perm)
+  
+  list(
+    D = D, n = n, M = M,
+    nb_datasets = nb_datasets,
+    nb_steps = nb_steps,
+    var_parameter = var_parameter,
+    p_asymp = do.call(rbind, lapply(results, `[[`, "p_asymp")),
+    p_boot = do.call(rbind, lapply(results, `[[`, "p_boot")),
+    p_perm = do.call(rbind, lapply(results, `[[`, "p_perm"))
+  )
 }
+
+plot_power <- function(sim_result, title = NULL) {
+  if (is.null(title)) {
+    title <- sprintf("Varying Parameter: %s", sim_result$var_parameter)
+  }
+  
+  vals <- 0:sim_result$nb_steps/sim_result$nb_steps
+  reject_asymp <- colMeans(sim_result$p_asymp < 0.05)
+  reject_boot <- colMeans(sim_result$p_boot < 0.05)
+  reject_perm  <- colMeans(sim_result$p_perm < 0.05)
+  
+  plot(vals, reject_asymp, type = "l", col = "red",
+       xlab = "t", ylab = "Proportion of p<0.05",
+       main = title, 
+       ylim = c(0, 1))
+  lines(vals, reject_boot, col="blue")
+  lines(vals, reject_perm, col = "green")
+  abline(a = 0.05, b = 0, col = "grey")
+  
+  legend("topleft",
+         legend = c("Chi^2", "Permutation", "Parametric Bootstrap"),
+         col    = c("red", "green", "blue"),
+         lty    = c(1, 1, 1))
+  
+}
+
+n_cores <- detectCores() - 1
+cl <- makeCluster(n_cores)
+registerDoParallel(cl)
+clusterEvalQ(cl, {
+  source('src/semi_markov/synthesis_data_generation.R')
+  source('src/semi_markov/mle_estimation.R')
+  source('src/two_samples_test.R')
+})
+
+res <- run_simulation(cl, D = 4, n = 30, M = 5, nb_datasets=500,
+                      var_parameter = 'alpha')
+plot_power(res)
 stopCluster(cl)
-
-reject_asymp <- colMeans(results[, 1:step+1] < 0.05)
-reject_perm  <- colMeans(results[, step+2:2*(step+1)] < 0.05)
-
-rate_vals <- 1+0:step/step
-
-plot(rate_vals, reject_asymp, type = "l", col = "blue", lwd = 2,
-     xlab = "rate", ylab = "Proportion of p<0.05",
-     main = "Exponential: rate",
-     ylim = c(0, 1))
-lines(rate_vals, reject_perm, col = "red", lwd = 2)
-legend("topright", legend = c("Chi^2", "Permutation"),
-       col = c("blue", "red"), lwd = 2)
