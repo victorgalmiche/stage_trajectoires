@@ -70,18 +70,19 @@ plot_power <- function(sim_result, title = NULL) {
   reject_boot <- colMeans(sim_result$p_boot < 0.05)
   reject_perm  <- colMeans(sim_result$p_perm < 0.05)
   
-  plot(vals, reject_asymp, type = "l", col = "red",
+  plot(vals, reject_asymp, col = "red", pch=1, cex=.8,
        xlab = "t", ylab = "Proportion of p<0.05",
        main = title, 
        ylim = c(0, 1))
-  lines(vals, reject_boot, col="blue")
-  lines(vals, reject_perm, col = "green")
-  abline(a = 0.05, b = 0, col = "grey")
+  points(vals, reject_boot, col="blue", pch=0, cex=.8)
+  points(vals, reject_perm, col = "green", pch=2, cex=.8)
+  abline(a = 0.05, b = 0, col = "grey", lty=2, lwd=2)
   
-  legend("topleft",
-         legend = c("Chi^2", "Permutation", "Parametric Bootstrap"),
-         col    = c("red", "green", "blue"),
-         lty    = c(1, 1, 1))
+  legend("bottomright",
+         legend = c("Chi^2", "Permutation", "Parametric Bootstrap", "Level 0.05"),
+         col = c("red", "green", "blue", "grey"),
+         pch = c(1, 0, 2, NA), 
+         lty = c(NA, NA, NA, 2))
   
 }
 
@@ -94,7 +95,11 @@ clusterEvalQ(cl, {
   source('src/two_samples_test.R')
 })
 
-res <- run_simulation(cl, D = 4, n = 30, M = 5, nb_datasets=500,
-                      var_parameter = 'alpha')
-plot_power(res)
+res <- run_simulation(cl, D = 4, n = 30, M = 5,
+                      var_parameter = 'omega')
+res_alpha <- run_simulation(cl, D = 4, n = 30, M = 5, 
+                            var_parameter = 'alpha')
+res_P <- run_simulation(cl, D = 4, n = 30, M = 5, 
+                        var_parameter = 'P')
+plot_power(res_alpha)
 stopCluster(cl)
