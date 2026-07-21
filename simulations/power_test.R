@@ -78,7 +78,7 @@ plot_power <- function(sim_result, title = NULL) {
   points(vals, reject_perm, col = "green", pch=2, cex=.8)
   abline(a = 0.05, b = 0, col = "grey", lty=2, lwd=2)
   
-  legend("bottomright",
+  legend("topleft",
          legend = c("Chi^2", "Permutation", "Parametric Bootstrap", "Level 0.05"),
          col = c("red", "green", "blue", "grey"),
          pch = c(1, 0, 2, NA), 
@@ -95,11 +95,11 @@ clusterEvalQ(cl, {
   source('src/two_samples_test.R')
 })
 
-res <- run_simulation(cl, D = 4, n = 30, M = 5,
+res_omega <- run_simulation(cl, D = 4, n = 30, M = 5,
                       var_parameter = 'omega')
 res_alpha <- run_simulation(cl, D = 4, n = 30, M = 5, 
                             var_parameter = 'alpha')
 res_P <- run_simulation(cl, D = 4, n = 30, M = 5, 
                         var_parameter = 'P')
-plot_power(res_alpha)
+plot_power(res_P)
 stopCluster(cl)
