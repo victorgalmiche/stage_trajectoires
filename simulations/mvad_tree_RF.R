@@ -1,4 +1,14 @@
-# Conversion function from trajectories to dataframe format used by two_sample_test.R
+library(TraMineR) # To compare with Studer et al. methodology
+
+source('src/semi_markov/mle_estimation.R')
+source('src/two_samples_test.R')
+source('src/random_forest/tree_construction.R')
+source('src/random_forest/random_forest.R')
+source('src/random_forest/variable_importance.R')
+source('src/visualization.R')
+
+# Conversion function from trajectories to dataframe format 
+# used by two_samples_test.R
 traj_to_df <- function(trajectories) {
   res <- list()
   
@@ -20,32 +30,30 @@ traj_to_df <- function(trajectories) {
   do.call(rbind, res)
 }
 
-### TEST RANDOM FOREST AND TREES
-source('src/random_forest/random_forest.R')
-source('src/random_forest/variable_importance.R')
-source('src/two_samples_test.R')
-
-library(TraMineR)
-
-# mvad data
+# Charging mvad data
 data(mvad)
-trajectories_mvad <- mvad[, 17:86]
-covariates_mvad <- mvad[, 3:14]
-traj_df <- traj_to_df(trajectories_mvad)
+trajectories_mvad <- mvad[, 17:86] # the trajectories 
+dataframe <- traj_to_df(trajectories_mvad) # the dataframe associated to the trajectories
+covariates <- mvad[, 3:14] # the covariates
+weights <- mvad[, 2] # the weights
 
-# Number of states 
-D_mvad <- 6
+# Number of states and sojourn time law
+D <- 6
+law_sojourn <- 'weibull'
+min_leaf <- as.integer(floor(nrow(covariates)/20)) # 5% of the total nb of ind
 
-weights_mvad <- mvad[, 2]
-law_sojourn <- 'exponential'
-
-# Tree construction
-# tree <- build_tree(traj_df, covariates, alg)
+# Tree construction and visualization
+tree <- build_tree(dataframe, covariates, weights,
+                   D, law_sojourn, likelihood_ratio_test, 
+                   min_leaf = min_leaf, alpha = 0.05, max_depth = 5)
+plot_tree(tree)
 
 # And a random forest
 rf <- random_forest(traj_df, covariates_mvad, weights_mvad,
                     D_mvad, law_sojourn, permutation_test)
 
+
+# Evaluating variable importance
 system.time({
   ranking_MDA_mvad <- MDA_all(rf, traj_df, covariates_mvad,
                               D_mvad, weights_mvad, law_sojourn)
@@ -70,16 +78,4 @@ barplot(ranking_MDI_mvad,
         col = "blue", 
         las = 2)
 
-# # biofam
-# data(biofam)
-# trajectories <- biofam[, 10:25]
-# traj_df <- traj_to_df(trajectories) 
-# traj_df$state <- traj_df$state + 1 # to have state number beginning at 1
-# covariates <- biofam[, 5:9]
-# 
-# # actcal
-# data(actcal)
-# trajectories <- actcal[, 13:24]
-# traj_df <- traj_to_df(trajectories)
-# traj_df$state <- traj_df$state - 5 # state number beginning at 1
-# covariates <- actcal[, 2:12]
+
