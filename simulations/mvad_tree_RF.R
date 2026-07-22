@@ -39,7 +39,7 @@ weights <- mvad[, 2] # the weights
 
 # Number of states and sojourn time law
 D <- 6
-law_sojourn <- 'weibull'
+law_sojourn <- 'exponential'
 min_leaf <- as.integer(floor(nrow(covariates)/20)) # 5% of the total nb of ind
 
 # Tree construction and visualization
@@ -49,33 +49,27 @@ tree <- build_tree(dataframe, covariates, weights,
 plot_tree(tree)
 
 # And a random forest
-rf <- random_forest(traj_df, covariates_mvad, weights_mvad,
-                    D_mvad, law_sojourn, permutation_test)
+rf <- random_forest(dataframe, covariates, weights,
+                    D, law_sojourn, likelihood_ratio_test,
+                    min_leaf = min_leaf, alpha = 0.05)
 
 
 # Evaluating variable importance
-system.time({
-  ranking_MDA_mvad <- MDA_all(rf, traj_df, covariates_mvad,
-                              D_mvad, weights_mvad, law_sojourn)
-})
+ranking_MDI <- MDI_all(rf, covariates)
+ranking_MDA <- MDA_all(rf, dataframe, covariates, D, weights, law_sojourn)
 
-
-system.time({
-  ranking_MDI_mvad <- MDI_all(rf, traj_df, covariates_mvad)
-})
-
-
-
-barplot(ranking_MDA_mvad, 
-        main = "Chi^2 test and Exponential Law",
-        ylab = "MDA", 
+barplot(ranking_MDI, 
+        main = "MDIs of the covariates",
+        ylab = "MDI", ylim = c(0, 1),
         col = "blue", 
         las = 2)
 
-barplot(ranking_MDI_mvad, 
-        main = "Permutation test and Exponential Law",
-        ylab = "MDI", 
+barplot(ranking_MDA, 
+        main = "MDAs of the covariates",
+        ylab = "MDA",
         col = "blue", 
         las = 2)
+
+
 
 
