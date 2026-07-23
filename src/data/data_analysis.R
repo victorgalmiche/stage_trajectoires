@@ -1,12 +1,64 @@
 source('src/data/extract_data.R')
+source('src/semi_markov/mle_estimation.R')
 library(dplyr)
 library(tidyr)
 library(MASS)
 library(TraMineR)
 
-# Descriptive statistics
-state_labels <- c('Non salarie', 'CDI', 'Contrat aide', 'CDD', 'Interim',
-                  'Job search', 'Inactivity', 'Training', 'School', 'Holidays')
+
+# Function to transform a dataframe of id, state, time into trajectories
+df_to_traj <- function(dataframe){
+  # To obtain the trajectories
+  trajectories <- dataframe %>%
+    group_by(id) %>%
+    summarise(t = list(rep(state, times = time)), .groups = "drop") %>%
+    tidyr::unnest_wider(t, names_sep = "_")
+  trajectories
+}
+
+# Creating the dataframe of trajectories
+trajectories <- df_to_traj(dataframe)
+labels <- c("Self-employed", "Permanent Contract", "Subsidized Contract", 
+            "Fixed-term Contract", "Temporary Work", "Job Search", 
+            "Inactivity", "Training", "Return to School", "Holidays")
+seq <- seqdef(trajectories, 2:99, weights=weights, labels=labels)
+
+# Printing 10 randomly selected trajectories w/ legend
+par(mfrow = c(1, 2))
+seqiplot(seq, idxs = sample(8882, size=10), 
+         with.legend = FALSE, border = NA, weighted=FALSE, 
+         main = "10 randomly selected trajectories",
+         xtstep = 12, yaxis=FALSE)
+seqlegend(seq)
+
+# Legend
+seqlegend(seq)
+
+# 10 randomly selected trajectories
+seqiplot(seq, idxs = sample(8882, size=10), 
+         with.legend = FALSE, border = NA, weighted=FALSE, 
+         main = "10 randomly selected trajectories",
+         xtstep = 12, yaxis=FALSE)
+
+# State distribution over time
+seqdplot(seq, with.legend = FALSE, border = NA, 
+         main = "State Distribution", 
+         xtstep = 12)
+
+# Empirical transition matrix
+P_hat <- mle_P(dataframe, D, weights)
+
+# Mean time in each state
+seqmtplot(seq, with.legend=FALSE, 
+          main = "Mean time spent in each state", 
+          ylab = "Time in months")
+
+# Modal state sequence
+seqmsplot(seq, with.legend=FALSE, border = NA,
+          ylab = 'State frequency', 
+          xtstep = 12)
+
+
 
 # Sum of sojourn times in each state
 df_sum <- dataframe %>%

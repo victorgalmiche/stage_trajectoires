@@ -1,14 +1,5 @@
 library(igraph)
 
-df_to_traj <- function(dataframe){
-  # To obtain the trajectories
-  trajectories <- dataframe %>%
-    group_by(id) %>%
-    summarise(trajectoire = list(rep(state, times = time)), .groups = "drop") %>%
-    tidyr::unnest_wider(trajectoire, names_sep = "_t")
-  trajectories
-}
-
 plot_tree <- function(tree, show_pval = TRUE, hgap = 1, vgap = 2,
                       vertex_size = 100, vertex_size2 = 150) {
   
