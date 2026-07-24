@@ -2,7 +2,6 @@ source('src/data/extract_data.R')
 source('src/semi_markov/mle_estimation.R')
 library(dplyr)
 library(tidyr)
-library(MASS)
 library(TraMineR)
 
 
@@ -31,6 +30,9 @@ seqiplot(seq, idxs = sample(8882, size=10),
          xtstep = 12, yaxis=FALSE)
 seqlegend(seq)
 
+# Reinitializing the plot window
+dev.off()
+
 # Legend
 seqlegend(seq)
 
@@ -49,7 +51,7 @@ seqdplot(seq, with.legend = FALSE, border = NA,
 P_hat <- mle_P(dataframe, D, weights)
 
 # Mean time in each state
-seqmtplot(seq, with.legend=FALSE, 
+seqmtplot(seq, with.legend=FALSE, weighted = FALSE,
           main = "Mean time spent in each state", 
           ylab = "Time in months")
 
@@ -58,63 +60,35 @@ seqmsplot(seq, with.legend=FALSE, border = NA,
           ylab = 'State frequency', 
           xtstep = 12)
 
-
-
-# Sum of sojourn times in each state
-df_sum <- dataframe %>%
-  group_by(state) %>%
-  summarise(total_time = sum(time, na.rm = TRUE))
-
-# Barplot of the time in each state
-barplot(df_sum$total_time,
-        # log = 'y',
-        names.arg = state_labels,
-        xlab = "State",
-        ylab = "Time in months",
-        # ylim = c(1e+03, 1e+06),
-        main = "Cumulative time spent in each state",
-        cex.names = 0.7
-)
-
 # Barplot of the observation in each state
 barplot(table(dataframe$state), 
-     names.arg = state_labels, 
-     xlab = 'State', 
+     names.arg = 1:10, 
+     col = cpal(seq),
+     xlab = 'State',
      ylab = 'Number of observations', 
-     main = 'Number of observations for each state',
-     cex.names = 0.7)
+     main = 'Number of observations for each state')
 
-# Histogram of sojourn times
-hist(dataframe$time,
-     xlab = 'Time in months', 
-     ylab = 'Number of observations', 
-     main = 'Histogram of sojourn times')
+# Computing MLE for sojourn times
+omega_exp <- mle_omega_exponential(dataframe, D, weights)
+omega_gamma <- mle_omega_gamma(dataframe, D, weights)
+omega_weibull <- mle_omega_weibull(dataframe, D, weights)
 
-
-# Histogram of sojourn times for a specific state - here CDD
-cdd <- dataframe[dataframe$state==4, ]
-fit_exp <- fitdistr(cdd$time, "exponential")
-fit_gamma <- fitdistr(cdd$time, "gamma")
-fit_weibull <- fitdistr(cdd$time, "weibull")
-
-x_vals <- seq(0, max(cdd$time), length.out = 100)
-hist(cdd$time, 
-     breaks = x_vals,
-     freq = FALSE,
-     xlab = 'Time in months', 
-     ylab = 'Density', 
-     main = 'Histogram of sojourn times in CDD')
-lines(x_vals, 
-      dgamma(x_vals, shape=fit_gamma$estimate[['shape']], rate=fit_gamma$estimate[['rate']]), 
-      col = "red")
-lines(x_vals, 
-      dweibull(x_vals, shape=fit_weibull$estimate[['shape']], scale=fit_weibull$estimate[['scale']]),
-      col = "green")
-lines(x_vals, 
-      dexp(x_vals, rate=fit_exp$estimate),
-      col="blue")
-legend("top",
-       legend = c("Gamma", "Weibull", "Exponential", paste0("n = ", nrow(cdd))),
-       col    = c("red", "green", "blue", NA),
-       lty    = c(1, 1, 1, NA))
+# Fitting of sojourn times for a specific state - Job Search here
+job_search <- dataframe[dataframe$state==6, ]
+weights_js <- weights[job_search$id]
+d <- density(job_search$time, weights =  weights_js/ sum(weights_js))
+plot(d, main = "Sojourn time in Job search (state 6)", 
+     xlab = "Time in months", xlim = c(0, 100))
+curve(dexp(x, rate = omega_exp[6, 'rate']), 
+      add = TRUE, col = "blue", lwd=2)
+curve(dgamma(x, shape = omega_gamma[6, 'shape'], 
+             rate = omega_gamma[6, 'rate']), 
+      add = TRUE, col = "red", lwd=2)
+curve(dweibull(x, shape = omega_weibull[6, 'shape'], 
+               scale = omega_weibull[6, 'scale']), 
+      add = TRUE, col = "green", lwd=2)
+legend("topright",
+       legend = c("Empirical Density", "Gamma", "Weibull", "Exponential"),
+       col    = c("black", "red", "green", "blue"),
+       lty    = c(1, 1, 1, 1))
 
