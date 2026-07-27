@@ -1,79 +1,128 @@
 source('src/data/extract_data.R')
-library(PCAmixdata)
+library(dplyr)
+library(tidyr)
 
-# Histogramme du nombre de modalités des colonnes quali
-hist(sapply(covariates[cols_quali], nlevels))
+# Transforming empty spaces into NA
+na_strings <- c("", " ", "NA", "N/A")
+individus_clean <- individus %>%
+  mutate(across(where(is.character), ~ ifelse(. %in% na_strings, NA, .)))
 
-# Blocs finaux 
-X.quanti <- covariates[, cols_quanti, drop=FALSE] 
-X.quali <- covariates[, cols_quali, drop=FALSE] 
-cat("Prêt pour PCAmix :\n") 
-cat(" -", ncol(X.quanti), "variables quantitatives\n") 
-cat(" -", ncol(X.quali), "variables qualitatives\n") 
-cat(" -", nrow(X.quanti), "individus\n") 
-
-res.pcamix <- PCAmix(X.quanti = X.quanti, X.quali = X.quali, 
-                     rename.level = TRUE, graph = TRUE)
-
-# Résumé et variance expliquée
-res.pcamix$eig
-
-# Coordonnées des variables (quanti + quali) sur les axes
-res.pcamix$quanti$coord
-res.pcamix$quali$coord
-
-# Graphique combiné
-plot(res.pcamix, choice = "cor")   # variables quantitatives (cercle des corrélations)
-plot(res.pcamix, choice = "levels") # modalités des variables qualitatives
-plot(res.pcamix, choice = "sqload") # carrés des loadings (quanti + quali ensemble)
-
-
-library(rcompanion)  # cramerV()
-library(corrplot)
-
-# Toutes les variables concernées
-all_vars <- c(cols_quali, cols_quanti)
-n <- length(all_vars)
-
-mat_assoc <- matrix(NA, n, n, dimnames = list(all_vars, all_vars))
-
-for (i in 1:n) {
-  for (j in 1:n) {
-    var_i <- all_vars[i]
-    var_j <- all_vars[j]
-    
-    if (i == j) {
-      mat_assoc[i, j] <- 1
-      
-    } else if (var_i %in% cols_quali & var_j %in% cols_quali) {
-      # quali - quali : V de Cramér
-      mat_assoc[i, j] <- cramerV(covariates[[var_i]], covariates[[var_j]])
-      
-    } else if (var_i %in% cols_quanti & var_j %in% cols_quali) {
-      # quanti - quali : eta² (ANOVA)
-      formule <- as.formula(paste(var_i, "~", var_j))
-      modele <- aov(formule, data = covariates)
-      ss <- summary(modele)[[1]]$`Sum Sq`
-      mat_assoc[i, j] <- ss[1] / sum(ss)
-      
-    } else if (var_i %in% cols_quali & var_j %in% cols_quanti) {
-      # symétrique du cas précédent
-      formule <- as.formula(paste(var_j, "~", var_i))
-      modele <- aov(formule, data = covariates)
-      ss <- summary(modele)[[1]]$`Sum Sq`
-      mat_assoc[i, j] <- ss[1] / sum(ss)
-    } else if (var_i %in% cols_quanti & var_j %in% cols_quanti) {
-      # quanti - quanti : Pearson (valeur absolue pour rester cohérent 0-1)
-      mat_assoc[i, j] <- abs(cor(covariates[[var_i]], covariates[[var_j]], 
-                                 use = "pairwise.complete.obs", method = "pearson"))
-    }
+# Extracting the numeric and categorical variables
+detect_type <- function(x) {
+  if (is.numeric(x)) {
+    return("numeric")
+  } else {
+    return("categorical")
   }
 }
 
-round(mat_assoc, 2)
+var_types <- sapply(individus_clean, detect_type)
+vars_cat <- names(var_types)[var_types == "categorical"]
+vars_num <- names(var_types)[var_types == "numeric"]
 
-corrplot(mat_assoc, method = "color", type = "upper", 
-         addCoef.col = "black", tl.col = "black", tl.srt = 45,
-         col = COL1("YlOrRd"), number.cex = 0.7,
-         title = "Matrice d'association (Cramér V / eta²)", 
-         mar = c(0,0,2,0))
+cat("Numeric variables:", length(vars_num), "\n")
+cat("Categorical variables:", length(vars_cat), "\n")
+
+# Converting categorical cols in factor
+individus_clean[vars_cat] <- lapply(individus_clean[vars_cat], as.factor)
+
+
+# Counting the proportion of NA for each variable
+na_summary <- individus_clean %>%
+  summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "pct_na") %>%
+  arrange(desc(pct_na))
+
+# Excluding some variables when too much NA
+threshold_na <- 0
+vars_to_exclude <- na_summary$variable[na_summary$pct_na > threshold_na]
+cat(length(vars_to_exclude), "variables have at least one NA")
+
+
+# Correlation Function for mixt variables
+
+# Cramer's V for categorical vs categorical
+cramers_v <- function(x, y) {
+  tbl <- table(x, y)
+  if (any(dim(tbl) < 2)) return(NA)
+  chi2 <- suppressWarnings(chisq.test(tbl, correct = FALSE)$statistic)
+  n <- sum(tbl)
+  k <- min(dim(tbl)) - 1
+  if (k == 0 || n == 0) return(NA)
+  sqrt(as.numeric(chi2) / (n * k))
+}
+
+# Correlation ratio for categorical vs numeric
+correlation_ratio <- function(categories, values) {
+  ok <- complete.cases(categories, values)
+  categories <- droplevels(as.factor(categories[ok]))
+  values <- values[ok]
+  if (length(unique(categories)) < 2 || length(values) < 3) return(NA)
+  ss_total <- sum((values - mean(values))^2)
+  if (ss_total == 0) return(NA)
+  moyennes <- tapply(values, categories, mean)
+  effectifs <- tapply(values, categories, length)
+  ss_between <- sum(effectifs * (moyennes - mean(values))^2)
+  sqrt(ss_between / ss_total)
+}
+
+
+assoc <- function(x, y, type_x, type_y) {
+  if (type_x == "numeric" && type_y == "numeric") {
+    # Pearson correlation for numeric vs numeric - Abs to get between 0 and 1
+    return(abs(suppressWarnings(cor(x, y, method = "pearson"))))
+  } else if (type_x != "numeric" && type_y != "numeric") {
+    return(cramers_v(x, y))
+  } else if (type_x == "numeric") {
+    return(correlation_ratio(y, x))
+  } else {
+    return(correlation_ratio(x, y))
+  }
+}
+
+# Excluding the variables w/ NA and the weights and id
+vars_to_exclude <- c(vars_to_exclude, "IDENT", "pondef")
+vars_to_keep <- setdiff(names(individus_clean), vars_to_exclude)
+
+type_lookup <- ifelse(vars_to_keep %in% vars_num, "numeric", "categorical")
+names(type_lookup) <- vars_to_keep
+
+# Building the correlation matrix
+n_vars <- length(vars_to_keep)
+mat_corr <- matrix(NA, n_vars, n_vars, 
+                   dimnames = list(vars_to_keep, vars_to_keep))
+
+for (i in seq_len(n_vars)) {
+  for (j in i:n_vars) {
+    if (i == j) {
+      mat_corr[i, j] <- 1
+    } else {
+      v <- assoc(individus_clean[[vars_to_keep[i]]], 
+                 individus_clean[[vars_to_keep[j]]],
+                 type_lookup[i], type_lookup[j])
+      mat_corr[i, j] <- v
+      mat_corr[j, i] <- v
+    }
+  }
+  if (i %% 50 == 0) cat("Variable", i, "/", n_vars, "done\n")
+}
+
+# Hierarchical clustering with the correlation
+dist_corr <- as.dist(1 - mat_corr)
+hc <- hclust(dist_corr, method = "average")
+
+heights <- sort(hc$height, decreasing = TRUE)
+plot(heights[1:100], type = "b",
+     xlab = "Fusion (decreasing order)", ylab = "Height", ylim = c(0,1),
+     main = "Search of an elbow for optimal number of clusters")
+
+# Cutting at a given threshold
+threshold_correlation <- 0.4 
+groups <- cutree(hc, h = 1 - threshold_correlation)
+cat("Number of clusters:", length(unique(groups)), "\n")
+
+# Arranging the groups in a dataframe
+groups_df <- data.frame(variable = names(groups), group = groups) %>%
+  arrange(group)
+
+
