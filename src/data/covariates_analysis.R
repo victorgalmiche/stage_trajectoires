@@ -7,6 +7,25 @@ na_strings <- c("", " ", "NA", "N/A")
 individus_clean <- individus %>%
   mutate(across(where(is.character), ~ ifelse(. %in% na_strings, NA, .)))
 
+# Counting the proportion of NA for each variable
+na_summary <- individus_clean %>%
+  summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "pct_na") %>%
+  arrange(desc(pct_na))
+
+# Excluding some variables when too much NA
+threshold_na <- 0
+vars_to_exclude <- na_summary$variable[na_summary$pct_na > threshold_na]
+cat(length(vars_to_exclude), "variables have at least one NA")
+
+
+# Excluding the variables w/ NA and the weights and id
+vars_to_exclude <- c(vars_to_exclude, "IDENT", "pondef")
+vars_to_keep <- setdiff(names(individus_clean), vars_to_exclude)
+
+individus_clean <- individus_clean[vars_to_keep]
+
+
 # Extracting the numeric and categorical variables
 detect_type <- function(x) {
   if (is.numeric(x)) {
@@ -26,17 +45,6 @@ cat("Categorical variables:", length(vars_cat), "\n")
 # Converting categorical cols in factor
 individus_clean[vars_cat] <- lapply(individus_clean[vars_cat], as.factor)
 
-
-# Counting the proportion of NA for each variable
-na_summary <- individus_clean %>%
-  summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
-  pivot_longer(everything(), names_to = "variable", values_to = "pct_na") %>%
-  arrange(desc(pct_na))
-
-# Excluding some variables when too much NA
-threshold_na <- 0
-vars_to_exclude <- na_summary$variable[na_summary$pct_na > threshold_na]
-cat(length(vars_to_exclude), "variables have at least one NA")
 
 
 # Correlation Function for mixt variables
@@ -80,12 +88,6 @@ assoc <- function(x, y, type_x, type_y) {
   }
 }
 
-# Excluding the variables w/ NA and the weights and id
-vars_to_exclude <- c(vars_to_exclude, "IDENT", "pondef")
-vars_to_keep <- setdiff(names(individus_clean), vars_to_exclude)
-
-type_lookup <- ifelse(vars_to_keep %in% vars_num, "numeric", "categorical")
-names(type_lookup) <- vars_to_keep
 
 # Building the correlation matrix
 n_vars <- length(vars_to_keep)
@@ -99,7 +101,7 @@ for (i in seq_len(n_vars)) {
     } else {
       v <- assoc(individus_clean[[vars_to_keep[i]]], 
                  individus_clean[[vars_to_keep[j]]],
-                 type_lookup[i], type_lookup[j])
+                 var_types[i], var_types[j])
       mat_corr[i, j] <- v
       mat_corr[j, i] <- v
     }
@@ -117,7 +119,7 @@ plot(heights[1:100], type = "b",
      main = "Search of an elbow for optimal number of clusters")
 
 # Cutting at a given threshold
-threshold_correlation <- 0.4 
+threshold_correlation <- 0.5 
 groups <- cutree(hc, h = 1 - threshold_correlation)
 cat("Number of clusters:", length(unique(groups)), "\n")
 
@@ -125,4 +127,13 @@ cat("Number of clusters:", length(unique(groups)), "\n")
 groups_df <- data.frame(variable = names(groups), group = groups) %>%
   arrange(group)
 
+# Correlation plot of the remaining chosen covariates
+chosen_vars <- c('PHD', 'CA13', 'CA20_17', 'CA22', 'CA24', 'ETR1', 'OS1', 
+                 'OS3', 'PER1', 'Q1', 'Q16', 'Q2', 'Q31', 'Q53_13', 'Q9',
+                 'SITMERE', 'SITPERE', 'ZUS')
+corrplot(mat_corr[chosen_vars, chosen_vars],
+         title = "Correlation plot of the chosen covariates", 
+         tl.col = 'black', tl.cex=0.6, mar = c(0, 0, 2, 0))
 
+
+individus_reduced <- individus_clean[chosen_vars]

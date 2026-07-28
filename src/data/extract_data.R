@@ -69,26 +69,26 @@ dataframe <- dataframe[order(dataframe$group), c("id", "state", "time")]
 
 
 ### COVARIATES TABLE ###
-# Creating a new column w/ PHD
-mapping_PHD <- rep(1, 18)
-mapping_PHD[2:5] <- 2
-mapping_PHD[6:12] <- 3
-mapping_PHD[13:18] <- 4
-individus$PHD_NEW <- mapping_PHD[as.integer(substr(individus$PHD, 1, 2))]
-
-
-# Columns chosen for the covariates table
+# # Creating a new column w/ PHD
+# mapping_PHD <- rep(1, 18)
+# mapping_PHD[2:5] <- 2
+# mapping_PHD[6:12] <- 3
+# mapping_PHD[13:18] <- 4
+# individus$PHD_NEW <- mapping_PHD[as.integer(substr(individus$PHD, 1, 2))]
+# 
+# 
+# # Columns chosen for the covariates table
+# # cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
+# #                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
+# # cols_quanti <- c('PHD_NEW', 'AGE10')
+# 
 # cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
-#                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
-# cols_quanti <- c('PHD_NEW', 'AGE10')
-
-cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
-                'ETR1', 'PER1', 'CA13', 'CA22')
-cols_quanti <- c('PHD_NEW')
-
-# Creating of the covariates table
-covariates <- individus[, cols_quanti]
-covariates[cols_quali] <- lapply(individus[cols_quali], as.factor)
+#                 'ETR1', 'PER1', 'CA13', 'CA22')
+# cols_quanti <- c('PHD_NEW')
+# 
+# # Creating of the covariates table
+# covariates <- individus[, cols_quanti]
+# covariates[cols_quali] <- lapply(individus[cols_quali], as.factor)
 
 
 ### WEIGHTS and others ###
