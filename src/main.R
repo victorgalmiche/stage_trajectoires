@@ -11,15 +11,24 @@ source('src/random_forest/tree_construction.R')
 source('src/random_forest/random_forest.R')
 source('src/random_forest/variable_importance.R')
 
+source('src/visualization.R')
+
 
 law_sojourn <- 'exponential'
 
-little_df <- subset(dataframe, id<200)
-df_PHD1 <- subset(dataframe, id %in% which(covariates$PHD_NEW==1))
+df_PHD1 <- subset(dataframe, id %in% which(covariates$PHD==1))
 
 system.time({
-  forest <- random_forest(df_PHD1, covariates, weights, 
-                          D, law_sojourn, likelihood_ratio_test)
+  min_leaf <- as.integer(floor(length(unique(dataframe$id))/20)) # 5% of the total nb of ind
+  tree <- build_tree(dataframe, covariates, weights, 
+                     D, law_sojourn, likelihood_ratio_test, 
+                     min_leaf = min_leaf, alpha = 0.05, max_depth = 5)
+})
+
+system.time({
+  forest <- random_forest(dataframe, covariates, weights, 
+                          D, law_sojourn, likelihood_ratio_test, 
+                          min_leaf = min_leaf, alpha = 0.05)
 })
 
 system.time({
