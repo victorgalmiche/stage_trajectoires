@@ -33,11 +33,115 @@ non_emplois <- aws.s3::s3read_using(
   opts = list("region"="")
 )
 
+
+### COVARIATES TABLE ###
+chosen_vars <- c('PHD', 'CA13', 'CA20_17', 'CA22', 'CA24', 'ETR1', 'OS1', 
+                 'OS3', 'PER1', 'Q1', 'Q16', 'Q2', 'Q31', 'Q53_13', 'Q9',
+                 'SITMERE', 'SITPERE', 'ZUS')
+individus_clean <- individus[, c('IDENT', 'pondef', chosen_vars)]
+
+individus_clean <- individus_clean[individus_clean$CA20_17 != 4, ]
+individus_clean <- individus_clean[individus_clean$CA22 != 5, ]
+individus_clean <- individus_clean[individus_clean$CA24 != 3, ]
+individus_clean <- individus_clean[individus_clean$Q31 != 3, ]
+
+
+# PHD
+mapping_PHD <- rep(1, times=18)
+mapping_PHD[2:5] <- 2
+mapping_PHD[6:12] <- 3
+mapping_PHD[13:18] <- 4
+covariates <- data.frame(
+  PHD=mapping_PHD[as.integer(substr(individus_clean$PHD, 1, 2))])
+
+# CA13
+covariates$CA13 <- factor(individus_clean$CA13, 
+                          levels=c(1,2), 
+                          labels=c('Yes', 'No'))
+
+# CA20_17
+mapping_CA20 <- c(1, 2, 2)
+covariates$CA20_17 <- factor(mapping_CA20[as.integer(individus_clean$CA20_17)], 
+                             levels=c(1,2), 
+                             labels=c('Yes', 'No'))
+
+# CA22
+covariates$CA22 <- as.integer(individus_clean$CA22)
+
+# CA24
+covariates$CA24 <- factor(individus_clean$CA24, 
+                          levels=c(1, 2), 
+                          labels=c('Yes', 'No'))
+
+# ETR1
+mapping_ETR1 <- c(1, 1, 2)
+covariates$ETR1 <- factor(mapping_ETR1[as.integer(individus_clean$ETR1)], 
+                          levels=c(1,2),
+                          labels=c('Yes','No'))
+
+# OS1
+covariates$OS1 <- factor(individus_clean$OS1, 
+                         levels=c(1,2),
+                         labels=c('Yes','No'))
+
+# OS3 
+mapping_OS3 <- c("4"=0, "1"=1, "2"=1, "3"=1, 
+                 "12"=2, "21"=2, "13"=2, "31"=2, "23"=2, "32"=2, 
+                 "123"=3, "132"=3, "213"=3, "231"=3, "312"=3, "321"=3)
+covariates$OS3 <- unname(mapping_OS3[individus_clean$OS3])
+
+# PER1
+covariates$PER1 <- factor(individus_clean$PER1, 
+                          levels=c(1,2), 
+                          labels=c('Yes','No'))
+
+# Q1
+covariates$Q1 <- factor(individus_clean$Q1, 
+                        levels=c(1, 2), 
+                        labels=c('Man', 'Woman'))
+
+# Q16
+covariates$Q16 <- factor(individus_clean$Q16, 
+                         levels=c(1,2), 
+                         labels=c('Yes','No'))
+
+# Q2
+covariates$Q2 <- as.integer(individus_clean$Q2)
+
+# Q31
+covariates$Q31 <- factor(individus_clean$Q31, 
+                         levels=c(1,2), 
+                         labels=c('Yes', 'No'))
+
+# Q53_13
+mapping_Q53 <- c(1, 1, 2)
+covariates$Q53_13 <- factor(mapping_Q53[as.integer(individus_clean$Q53_13)], 
+                          levels=c(1,2),
+                          labels=c('Yes','No'))
+
+# Q9
+covariates$Q9 <- factor(individus_clean$Q9, 
+                        levels=c(1,2), 
+                        labels=c('Yes', 'No'))
+
+# SITMERE
+covariates$SITMERE <- as.factor(individus_clean$SITMERE)
+
+# SITPERE
+covariates$SITPERE <- as.factor(individus_clean$SITPERE)
+
+# ZUS
+covariates$ZUS <- factor(individus_clean$ZUS, 
+                         levels=c(1,2), 
+                         labels=c('Yes', 'No'))
+
+
+
 ### DATAFRAME SEMI-MARKOV ###
 
 # Assigning the id (ie the row number in individus)
-emplois$id <- match(emplois$IDENT, individus$IDENT)
-non_emplois$id <- match(non_emplois$IDENT, individus$IDENT)
+emplois$id <- match(emplois$IDENT, individus_clean$IDENT)
+non_emplois$id <- match(non_emplois$IDENT, individus_clean$IDENT)
 
 # Extracting the states
 emplois$state <- as.integer(factor(emplois$CONTRAT_EMB))
@@ -68,31 +172,8 @@ dataframe <- dataframe[order(dataframe$group), c("id", "state", "time")]
 
 
 
-### COVARIATES TABLE ###
-# # Creating a new column w/ PHD
-# mapping_PHD <- rep(1, 18)
-# mapping_PHD[2:5] <- 2
-# mapping_PHD[6:12] <- 3
-# mapping_PHD[13:18] <- 4
-# individus$PHD_NEW <- mapping_PHD[as.integer(substr(individus$PHD, 1, 2))]
-# 
-# 
-# # Columns chosen for the covariates table
-# # cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
-# #                'ETR1', 'PER1', 'SITPERE', 'SITMERE', 'CA13', 'CA22')
-# # cols_quanti <- c('PHD_NEW', 'AGE10')
-# 
-# cols_quali <- c('Q1', 'Q16', 'Q31', 'OS1', 'OS3_1', 'OS3_2', 'OS3_3',
-#                 'ETR1', 'PER1', 'CA13', 'CA22')
-# cols_quanti <- c('PHD_NEW')
-# 
-# # Creating of the covariates table
-# covariates <- individus[, cols_quanti]
-# covariates[cols_quali] <- lapply(individus[cols_quali], as.factor)
-
-
 ### WEIGHTS and others ###
-weights <- individus$pondef
+weights <- individus_clean$pondef
 
 # Number of states
 D <- 10
