@@ -12,7 +12,7 @@
 ### HELPER
 # Function to flag the last row per id, useful for P and omega with censoring
 last_row_per_id <- function(dataframe) {
-  c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], TRUE)
+  c(dataframe$id[-1] != dataframe$id[-nrow(dataframe)], TRUE)
 }
 
 
