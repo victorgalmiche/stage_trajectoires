@@ -20,11 +20,11 @@ make_simple_df <- function() {
   )
 }
 
-make_toy_trajectories <- function(n = 30, D = 3, M = 5, 
+make_toy_trajectories <- function(n = 30, D = 3, T_max = 5, 
                                   law_sojourn = "exponential", seed = 1) {
   set.seed(seed)
   theta <- generate_theta(D, law_sojourn)
-  generate_dataset_H0(theta, law_sojourn, n %/% 2, n - n %/% 2, M)
+  generate_dataset_H0(theta, law_sojourn, n %/% 2, n - n %/% 2, T_max)
 }
 
 make_toy_covariates <- function(n) {

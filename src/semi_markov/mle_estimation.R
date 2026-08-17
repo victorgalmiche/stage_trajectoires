@@ -5,6 +5,16 @@
 # We also dispose of a weight vector 
 # i-th element is the weight assigned to the individual for which id=i
 
+# CENSORING: the LAST row of each id is right-censored, i.e. we only know
+# the sojourn in that state lasted AT LEAST dataframe$time for that row,
+# not that it ended exactly there.
+
+### HELPER
+# Function to flag the last row per id, useful for P and omega with censoring
+last_row_per_id <- function(dataframe) {
+  c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], TRUE)
+}
+
 
 ### LOG-LIKELIHOOD
 # Part of the log-likelihood depending on alpha
@@ -25,8 +35,9 @@ log_likelihood_alpha <- function(dataframe, alpha, weights=NULL) {
 
 # Part of the log-likelihood depending on P
 log_likelihood_P <- function(dataframe, P, weights=NULL) {
-  # For each row that has a successor in the same chain
-  same_chain <- c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], FALSE)
+  # For each row that has a successor in the same chain 
+  # This is the opposite of last row per id
+  same_chain <- !last_row_per_id(dataframe)
   
   # Computing the transitions
   state_i <- dataframe$state[same_chain]
@@ -47,20 +58,48 @@ log_likelihood_P <- function(dataframe, P, weights=NULL) {
 }
 
 # Part of the log-likelihood depending on omega
-log_likelihood_omega <- function(dataframe, omega, weights=NULL, law_sojourn='gamma'){
-  log_f <- switch(law_sojourn, 
-                  gamma = dgamma(dataframe$time,
-                            shape=omega[dataframe$state, 'shape'],
-                            rate=omega[dataframe$state, 'rate'],
+log_likelihood_omega <- function(dataframe, omega, 
+                                 weights=NULL, law_sojourn='gamma') {
+  # censored flagged the censored sojourn time
+  censored <- last_row_per_id(dataframe)
+  observed <- !censored 
+  
+  log_f <- numeric(nrow(dataframe))
+  
+  # For the observed sojourn times 
+  s_obs <- dataframe$state[observed]
+  t_obs <- dataframe$time[observed]
+  log_f[observed] <- switch(law_sojourn, 
+                  gamma = dgamma(t_obs,
+                            shape=omega[s_obs, 'shape'],
+                            rate=omega[s_obs, 'rate'],
                             log=TRUE),
-                  weibull = dweibull(dataframe$time,
-                                shape=omega[dataframe$state, 'shape'],
-                                scale=omega[dataframe$state, 'scale'],
+                  weibull = dweibull(t_obs,
+                                shape=omega[s_obs, 'shape'],
+                                scale=omega[s_obs, 'scale'],
                                 log=TRUE),
-                  exponential = dexp(dataframe$time, 
-                                rate=omega[dataframe$state, 'rate'],
+                  exponential = dexp(t_obs, 
+                                rate=omega[s_obs, 'rate'],
                                 log=TRUE)
   )
+  
+  # For the censored sojourn times
+  t_cen <- dataframe$time[censored]
+  s_cen <- dataframe$state[censored]
+  log_f[censored] <- switch(law_sojourn, 
+                       gamma = pgamma(t_cen,
+                                      shape=omega[s_cen, 'shape'],
+                                      rate=omega[s_cen, 'rate'],
+                                      lower.tail=FALSE, log.p=TRUE),
+                       weibull = pweibull(t_cen,
+                                          shape=omega[s_cen, 'shape'],
+                                          scale=omega[s_cen, 'scale'],
+                                          lower.tail=FALSE, log.p=TRUE),
+                       exponential = dexp(t_cen, 
+                                          rate=omega[s_cen, 'rate'],
+                                          lower.tail=FALSE, log.p=TRUE)
+  )
+  
   if (is.null(weights)){
     w <- rep(1, length(log_f))
   } else {
@@ -91,7 +130,7 @@ mle_alpha <- function(dataframe, D, weights=NULL) {
 # MLE for P
 mle_P <- function(dataframe, D, weights=NULL) {
   # Count transitions
-  same_chain <- c(dataframe$id[-1] == dataframe$id[-nrow(dataframe)], FALSE)
+  same_chain <- !last_row_per_id(dataframe)
   
   state_i <- dataframe$state[same_chain]
   state_j <- dataframe$state[which(same_chain) + 1]
@@ -125,13 +164,17 @@ mle_P <- function(dataframe, D, weights=NULL) {
 
 # MLE for omega - using Nelder-Mead optimization
 mle_omega_gamma <- function(dataframe, D, weights=NULL){
+  censored <- last_row_per_id(dataframe)
+  
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'rate')))
   
   # For each state s
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- dataframe[dataframe$state==s,]
+    keep_s <- dataframe$state==s
+    df_s <- dataframe[keep_s,]
+    cen_s <- censored[keep_s]
     
     # and weights
     if (is.null(weights)){
@@ -149,7 +192,16 @@ mle_omega_gamma <- function(dataframe, D, weights=NULL){
     # Objective function: negative log likelihood
     nll <- function(pars){
       if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
-      ll <- sum(w*dgamma(df_s$time, shape=pars[1], rate=pars[2], log=TRUE))
+      obs_s <- !cen_s
+      ll_obs <- if(any(obs_s))
+        sum(w[obs_s]*dgamma(df_s$time[obs_s], shape=pars[1], rate=pars[2], 
+                            log=TRUE))
+      else 0
+      ll_cen <- if(any(cen_s)) 
+        sum(w[cen_s]*pgamma(df_s$time[cen_s], shape=pars[1], rate=pars[2], 
+                            lower.tail=FALSE, log.p=TRUE))
+      else 0
+      ll <- ll_obs + ll_cen
       if (!is.finite(ll)) return(1e10)
       -ll
     }
@@ -193,13 +245,17 @@ mle_omega_gamma <- function(dataframe, D, weights=NULL){
 }
 
 mle_omega_weibull <- function(dataframe, D, weights=NULL){
+  censored <- last_row_per_id(dataframe)
+
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=2, dimnames=list(1:D, c('shape', 'scale')))
   
   # For each state s
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- dataframe[dataframe$state==s,]
+    keep_s <- dataframe$state==s
+    df_s <- dataframe[keep_s,]
+    cen_s <- censored[keep_s]
     
     # and weights
     if (is.null(weights)){
@@ -217,7 +273,16 @@ mle_omega_weibull <- function(dataframe, D, weights=NULL){
     # Objective function: negative log likelihood
     nll <- function(pars){
       if (pars[1] <= 0 || pars[2] <= 0) return(1e10)
-      ll <- sum(w*dweibull(df_s$time, shape=pars[1], scale=pars[2], log=TRUE))
+      obs_s <- !cen_s
+      ll_obs <- if (any(obs_s))
+        sum(w[obs_s]*dweibull(df_s$time[obs_s], shape=pars[1], scale=pars[2], 
+                              log=TRUE))
+      else 0
+      ll_cen <- if (any(cen_s))
+        sum(w[cen_s]*pweibull(df_s$time[cen_s], shape=pars[1], scale=pars[2], 
+                              lower.tail=FALSE, log.p=TRUE))
+      else 0
+      ll <- ll_obs + ll_cen
       if (!is.finite(ll)) return(1e10)
       -ll
     }
@@ -253,12 +318,16 @@ mle_omega_weibull <- function(dataframe, D, weights=NULL){
 }
 
 mle_omega_exponential <- function(dataframe, D, weights=NULL){
+  censored <- last_row_per_id(dataframe)
+  
   # Creating a matrix object to store the result - initialized w/ ones
   omega <- matrix(1, nrow=D, ncol=1, dimnames=list(1:D, c('rate')))
   
   for (s in 1:D){
     # Extracting the corresponding rows
-    df_s <- dataframe[dataframe$state==s,]
+    keep_s <- dataframe$state==s
+    df_s <- dataframe[keep_s,]
+    cen_s <- censored[keep_s]
     
     if (nrow(df_s) < 1){
       warning(paste('State', s, 'has no time observations'))
@@ -273,7 +342,7 @@ mle_omega_exponential <- function(dataframe, D, weights=NULL){
     }
     
     # MLE for exponential distribution
-    omega[s, 'rate'] <- sum(w)/sum(w*df_s$time)
+    omega[s, 'rate'] <- sum(w[!cen_s])/sum(w*df_s$time)
   }
   omega
 }

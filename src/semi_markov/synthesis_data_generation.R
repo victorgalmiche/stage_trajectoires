@@ -51,29 +51,11 @@ generate_theta <- function(D, law_sojourn='gamma'){
 ### Generating a dataset of multiple SMP
 # theta is the parameter of the SMPs
 # n is the number of SMP
-# M is the number of observed transitions per SMP
-generate_dataset <- function(theta, law_sojourn='gamma', n, M) {
+# T_max is the total time of observation
+generate_dataset <- function(theta, law_sojourn='gamma', n, T_max) {
   D <- length(theta$alpha) # Number of states
   
-  # Matrix describing the succession of states 
-  states <- matrix(0L, nrow = n, ncol = M) 
-  
-  # The first states are sampled using alpha parameter
-  states[, 1] <- sample.int(D, size=n, replace=TRUE, prob=theta$alpha)
-  
-  for (j in 2:M) {
-    # Successions of states 
-    current_states <- states[, j - 1] 
-    
-    probs <- theta$P[current_states,]
-    
-    # Using an inverse-CDF approach
-    cum_probs <- t(apply(probs, 1, cumsum))
-    u <- runif(n)
-    states[, j] <- rowSums(cum_probs < u) + 1L
-  }
-  
-  # Sojourn times
+  # Sojourn times generating function
   fun <- switch(law_sojourn,
                 gamma = function(s) {
                   rgamma(1, shape=theta$omega[s, 'shape'], 
@@ -89,23 +71,37 @@ generate_dataset <- function(theta, law_sojourn='gamma', n, M) {
                 stop(paste("Unknown sojourn law:", law_sojourn))  # input validation
   )
   
-  # Calculating sojourn times in each state
-  sojournTimes <- apply(states[, ], c(1, 2), fun)
+  trajectories <- vector("list", n)
+  for (i in 1:n) {
+    current_time <- 0
+    current_state <- sample.int(D, size=1, replace=TRUE, prob=theta$alpha)
+    
+    trajectory <- list()
+    while (current_time < T_max) {
+      sojourn <- fun(current_state)
+      observed_sojourn <- min(sojourn, T_max-current_time)
+      trajectory[[length(trajectory)+1]] <- data.frame(
+        id = i, 
+        state = current_state, 
+        time = observed_sojourn
+      )
+      
+      probs <- theta$P[current_state, ]
+      current_state <- sample.int(D, size=1, replace=TRUE, prob=probs)
+      current_time <- current_time + sojourn
+    }
+    trajectories[[i]] <- do.call(rbind, trajectory)
+  }
   
-  # Build a dataframe storing the precedent information
-  id <- rep(1:n, each = M)
-  state <- as.vector(t(states))
-  time <- as.vector(t(sojournTimes))
-  
-  data.frame(id = id, state=state, time=time)
+  data.frame(do.call(rbind, trajectories), row.names=NULL)
 }
 
 
 ### Generating a dataset under H0 
 # n1 and n2 are the number of processes in each group
-generate_dataset_H0 <- function(theta, law_sojourn='gamma', n1, n2, M) {
-  df1 <- generate_dataset(theta, law_sojourn, n1, M)
-  df2 <- generate_dataset(theta, law_sojourn, n2, M)
+generate_dataset_H0 <- function(theta, law_sojourn='gamma', n1, n2, T_max) {
+  df1 <- generate_dataset(theta, law_sojourn, n1, T_max)
+  df2 <- generate_dataset(theta, law_sojourn, n2, T_max)
   df2$id <- df2$id + n1
   
   rbind(df1, df2)

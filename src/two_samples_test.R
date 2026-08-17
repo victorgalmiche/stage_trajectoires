@@ -27,7 +27,7 @@ likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'
 # Parametric bootstrap test 
 parametric_bootstrap <- function(df1, df2, D, 
                                  weights=NULL, law_sojourn='gamma', 
-                                 R=100, M=10) {
+                                 R=100, T_max=10) {
   n1 <- length(unique(df1$id))
   n2 <- length(unique(df2$id))
   dataframe <- rbind(df1, df2)
@@ -41,7 +41,7 @@ parametric_bootstrap <- function(df1, df2, D,
   
   T_star <- numeric(R)
   for (r in 1:R){
-    df_bootstrap <- generate_dataset_H0(theta_hat, law_sojourn, n1, n2, M)
+    df_bootstrap <- generate_dataset_H0(theta_hat, law_sojourn, n1, n2, T_max)
     df1_bootstrap <- subset(df_bootstrap, id<=n1)
     df2_bootstrap <- subset(df_bootstrap, id>n1)
     
