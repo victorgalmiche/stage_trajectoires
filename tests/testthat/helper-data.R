@@ -20,7 +20,7 @@ make_simple_df <- function() {
   )
 }
 
-make_toy_trajectories <- function(n = 30, D = 3, T_max = 10, 
+make_toy_trajectories <- function(n = 30, D = 3, T_max = 5, 
                                   law_sojourn = "exponential", seed = 1) {
   set.seed(seed)
   theta <- generate_theta(D, law_sojourn)

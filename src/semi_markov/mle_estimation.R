@@ -95,7 +95,7 @@ log_likelihood_omega <- function(dataframe, omega,
                                           shape=omega[s_cen, 'shape'],
                                           scale=omega[s_cen, 'scale'],
                                           lower.tail=FALSE, log.p=TRUE),
-                       exponential = dexp(t_cen, 
+                       exponential = pexp(t_cen, 
                                           rate=omega[s_cen, 'rate'],
                                           lower.tail=FALSE, log.p=TRUE)
   )
