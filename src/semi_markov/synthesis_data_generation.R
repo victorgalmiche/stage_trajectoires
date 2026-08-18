@@ -17,12 +17,12 @@ generate_omega <- function(D, law_sojourn) {
   switch(law_sojourn,
          gamma = {
            a <- rexp(D, rate = 0.5) # shape
-           lambda <- rexp(D, rate = 3) # rate=1/scale
+           lambda <- rexp(D, rate = 1) # rate=1/scale
            cbind(shape = a, rate = lambda)
          },
          weibull = {
-           eta <- rexp(D, rate = 0.8) # shape
-           beta <- rexp(D, rate = 0.15) # scale
+           eta <- rexp(D, rate = 0.5) # shape
+           beta <- rexp(D, rate = 1) # scale
            cbind(shape = eta, scale = beta)
          },
          exponential = {

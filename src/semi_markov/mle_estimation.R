@@ -317,7 +317,7 @@ mle_omega_weibull <- function(dataframe, D, weights=NULL){
   omega
 }
 
-mle_omega_exponential <- function(dataframe, D, weights=NULL){
+mle_omega_exponential <- function(dataframe, D, weights=NULL, min_rate=1e-8){
   censored <- last_row_per_id(dataframe)
   
   # Creating a matrix object to store the result - initialized w/ ones
@@ -342,7 +342,14 @@ mle_omega_exponential <- function(dataframe, D, weights=NULL){
     }
     
     # MLE for exponential distribution
-    omega[s, 'rate'] <- sum(w[!cen_s])/sum(w*df_s$time)
+    n_events <- sum(w[!cen_s])
+    if (n_events <= 0) {
+      warning(paste('State', s, 'has no observed (uncensored) exits;',
+                    'MLE rate is 0 (infinite mean sojourn) -> clamped to min_rate'))
+      omega[s, 'rate'] <- min_rate
+    } else {
+      omega[s, 'rate'] <- n_events / sum(w*df_s$time)
+    } 
   }
   omega
 }
