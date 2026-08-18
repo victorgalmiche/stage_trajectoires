@@ -70,37 +70,37 @@ test_that("Correct sorting of MDI", {
   expect_equal(result, sort(result, decreasing = TRUE))
 })
 
-# test_that("MDA detects an informative variable", {
-#   set.seed(42)
-#   n <- 30
-#   D <- 4
-#   law_sojourn <- 'exponential'
-#   covariates <- data.frame(X1=sample.int(3, n, replace=TRUE), X2=rnorm(n))
-#   
-#   # X1 is exactly the initial state - 0 loss w/ use of X1 for prediction
-#   dataframe <- data.frame(id=rep(1:n, each=2), 
-#                           state=rep(0, 2*n), 
-#                           time=rexp(2*n))
-#   dataframe$state[2*1:n -1] <- covariates$X1
-#   dataframe$state[2*1:n] <- 4
-#   
-#   weights <- rep(1, n)
-#   
-#   tree <- build_tree(subset(dataframe, id<=20), covariates, weights,
-#                      D, law_sojourn, likelihood_ratio_test)
-#   tree$oob_ids <- 21:30
-#   forest <- list(tree)
-#   
-#   set.seed(1)
-#   mda_X1 <- MDA(forest, 'X1', dataframe, covariates,
-#                 D, weights, law_sojourn)
-#   set.seed(1)
-#   mda_X2 <- MDA(forest, 'X2', dataframe, covariates, 
-#                 D, weights, law_sojourn)
-#   
-#   # Random permutation of X1 breaks relation w/ state -> MDA(X1) > 0
-#   expect_gt(mda_X1, 0)
-#   # X2 is non-informative -> MDA(X2) ~ 0
-#   expect_equal(mda_X2, 0)
-#   expect_gt(mda_X1, mda_X2)
-# })
+test_that("MDA detects an informative variable", {
+  set.seed(42)
+  n <- 30
+  D <- 4
+  law_sojourn <- 'exponential'
+  covariates <- data.frame(X1=sample.int(3, n, replace=TRUE), X2=rnorm(n))
+
+  # X1 is exactly the initial state - 0 loss w/ use of X1 for prediction
+  dataframe <- data.frame(id=rep(1:n, each=2),
+                          state=rep(0, 2*n),
+                          time=rexp(2*n))
+  dataframe$state[2*1:n -1] <- covariates$X1
+  dataframe$state[2*1:n] <- 4
+
+  weights <- rep(1, n)
+
+  tree <- build_tree(subset(dataframe, id<=20), covariates, weights,
+                     D, law_sojourn, likelihood_ratio_test)
+  tree$oob_ids <- 21:30
+  forest <- list(tree)
+
+  set.seed(1)
+  mda_X1 <- MDA(forest, 'X1', dataframe, covariates,
+                D, weights, law_sojourn)
+  set.seed(1)
+  mda_X2 <- MDA(forest, 'X2', dataframe, covariates,
+                D, weights, law_sojourn)
+
+  # Random permutation of X1 breaks relation w/ state -> MDA(X1) > 0
+  expect_gt(mda_X1, 0)
+  # X2 is non-informative -> MDA(X2) ~ 0
+  expect_equal(mda_X2, 0)
+  expect_gt(mda_X1, mda_X2)
+})

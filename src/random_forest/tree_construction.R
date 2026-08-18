@@ -23,7 +23,7 @@ generate_bipartitions <- function(n_levels) {
 
 best_split_categorical <- function(dataframe, covariate, min_leaf, 
                                    weights, D, law_sojourn) {
-  best <- list(lambda=Inf, left_levels=NULL, right_levels=NULL)
+  best <- list(lambda=-Inf, left_levels=NULL, right_levels=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
   levs <- levels(droplevels(covariate[ids])) # And the corresponding possible levels
@@ -44,7 +44,7 @@ best_split_categorical <- function(dataframe, covariate, min_leaf,
           length(unique(df_right$id)) < min_leaf) next
       
       lambda <- lambda_statistic(df_left, df_right, D, weights, law_sojourn)
-      if (lambda < best$lambda){
+      if (lambda > best$lambda){
         best <- list(lambda=lambda, 
                      left_levels=levs[partition$left], 
                      right_levels=levs[partition$right])
@@ -58,7 +58,7 @@ best_split_categorical <- function(dataframe, covariate, min_leaf,
 # Find the best split for a numeric variable
 best_split_numeric <- function(dataframe, covariate, min_leaf, 
                                weights, D, law_sojourn) {
-  best <- list(lambda=Inf, threshold=NULL)
+  best <- list(lambda=-Inf, threshold=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
   sorted_values <- sort(unique(covariate[ids])) # Sorting the values taken by the covariate
@@ -80,7 +80,7 @@ best_split_numeric <- function(dataframe, covariate, min_leaf,
           length(unique(df_right$id)) < min_leaf) next
       
       lambda <- lambda_statistic(df_left, df_right, D, weights, law_sojourn)
-      if (lambda < best$lambda){
+      if (lambda > best$lambda){
         best <- list(lambda=lambda, threshold=thresh)
       }
     }
@@ -90,7 +90,7 @@ best_split_numeric <- function(dataframe, covariate, min_leaf,
 
 find_best_split <- function(dataframe, covariates, min_leaf, 
                             weights, D, law_sojourn){
-  best <- list(lambda=Inf)
+  best <- list(lambda=-Inf)
   for (var in names(covariates)){
     covariate <- covariates[[var]] # Extracting the column of the covariate
     
@@ -106,7 +106,7 @@ find_best_split <- function(dataframe, covariates, min_leaf,
     }
     
     # Comparing w/ the best curent p-value
-    if(best_split$lambda < best$lambda){
+    if(best_split$lambda > best$lambda){
       best <- best_split
       best$var <- var
       best$type <- split_type
