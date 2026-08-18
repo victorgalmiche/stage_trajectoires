@@ -22,8 +22,8 @@ generate_bipartitions <- function(n_levels) {
 }
 
 best_split_categorical <- function(dataframe, covariate, min_leaf, 
-                                   pvalue_algo, weights, D, law_sojourn) {
-  best <- list(pval=1, left_levels=NULL, right_levels=NULL)
+                                   weights, D, law_sojourn) {
+  best <- list(lambda=Inf, left_levels=NULL, right_levels=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
   levs <- levels(droplevels(covariate[ids])) # And the corresponding possible levels
@@ -43,9 +43,9 @@ best_split_categorical <- function(dataframe, covariate, min_leaf,
       if (length(unique(df_left$id)) < min_leaf || 
           length(unique(df_right$id)) < min_leaf) next
       
-      pval <- pvalue_algo(df_left, df_right, D, weights, law_sojourn)
-      if (pval < best$pval){
-        best <- list(pval=pval, 
+      lambda <- lambda_statistic(df_left, df_right, D, weights, law_sojourn)
+      if (lambda < best$lambda){
+        best <- list(lambda=lambda, 
                      left_levels=levs[partition$left], 
                      right_levels=levs[partition$right])
       }
@@ -57,8 +57,8 @@ best_split_categorical <- function(dataframe, covariate, min_leaf,
 
 # Find the best split for a numeric variable
 best_split_numeric <- function(dataframe, covariate, min_leaf, 
-                               pvalue_algo, weights, D, law_sojourn) {
-  best <- list(pval=1, threshold=NULL)
+                               weights, D, law_sojourn) {
+  best <- list(lambda=Inf, threshold=NULL)
   
   ids <- unique(dataframe$id) # Selecting only the ids of the individuals in the current dataframe
   sorted_values <- sort(unique(covariate[ids])) # Sorting the values taken by the covariate
@@ -79,9 +79,9 @@ best_split_numeric <- function(dataframe, covariate, min_leaf,
       if (length(unique(df_left$id)) < min_leaf || 
           length(unique(df_right$id)) < min_leaf) next
       
-      pval <- pvalue_algo(df_left, df_right, D, weights, law_sojourn)
-      if (pval < best$pval){
-        best <- list(pval=pval, threshold=thresh)
+      lambda <- lambda_statistic(df_left, df_right, D, weights, law_sojourn)
+      if (lambda < best$lambda){
+        best <- list(lambda=lambda, threshold=thresh)
       }
     }
   }
@@ -89,24 +89,24 @@ best_split_numeric <- function(dataframe, covariate, min_leaf,
 }
 
 find_best_split <- function(dataframe, covariates, min_leaf, 
-                            pvalue_algo, weights, D, law_sojourn){
-  best <- list(pval=1)
+                            weights, D, law_sojourn){
+  best <- list(lambda=Inf)
   for (var in names(covariates)){
     covariate <- covariates[[var]] # Extracting the column of the covariate
     
     # Selecting the good type of covariate
     if (is.numeric(covariate) || is.integer(covariate)){
       best_split <- best_split_numeric(dataframe, covariate, min_leaf, 
-                                       pvalue_algo, weights, D, law_sojourn)
+                                       weights, D, law_sojourn)
       split_type <- 'numeric'
     } else {
       best_split <- best_split_categorical(dataframe, covariate, min_leaf, 
-                                           pvalue_algo, weights, D, law_sojourn)
+                                           weights, D, law_sojourn)
       split_type <- 'categorical'
     }
     
     # Comparing w/ the best curent p-value
-    if(best_split$pval < best$pval){
+    if(best_split$lambda < best$lambda){
       best <- best_split
       best$var <- var
       best$type <- split_type
@@ -139,7 +139,7 @@ build_tree <- function(dataframe, covariates, weights,
   
   # Finding the best split
   best <- find_best_split(dataframe, sample_features, min_leaf, 
-                          pvalue_algo, weights, D, law_sojourn)
+                          weights, D, law_sojourn)
   
   # No split found
   if (is.null(best$var)) {
@@ -160,8 +160,8 @@ build_tree <- function(dataframe, covariates, weights,
   df_left <- subset(dataframe, id %in% left_ids)
   df_right <- subset(dataframe, id %in% right_ids)
   
-  # Recomputing w/ permutation test
-  best$pval <- permutation_test(df_left, df_right, D, weights, law_sojourn)
+  # Computing p-val for statistical significance
+  best$pval <- pvalue_algo(df_left, df_right, D, weights, law_sojourn)
   
   # Split found is not significant
   if (best$pval >= alpha){

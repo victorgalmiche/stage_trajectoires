@@ -1,5 +1,5 @@
-# Classical LR test (also called chi2)
-likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'){
+# Log_likelihood_ratio
+log_likelihood_ratio <- function(df1, df2, D, weights=NULL, law_sojourn='gamma') {
   # Combining the two groups
   dataframe <- rbind(df1, df2)
   
@@ -8,10 +8,18 @@ likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'
   est1 <- mle_fit(df1, D, weights, law_sojourn)
   est2 <- mle_fit(df2, D, weights, law_sojourn)
   
-  # And the lambda statistic
-  lambda <- 2*(est1$log_likelihood + 
-                 est2$log_likelihood - 
-                 global_est$log_likelihood)
+  global_est$log_likelihood - est1$log_likelihood - est2$log_likelihood
+}
+
+# Lambda stat
+lambda_statistic <- function(df1, df2, D, weights=NULL, law_sojourn='gamma') {
+  -2*log_likelihood_ratio(df1, df2, D, weights, law_sojourn)
+}
+
+# Classical LR test (also called chi2)
+likelihood_ratio_test <- function(df1, df2, D, weights=NULL, law_sojourn='gamma'){
+  # Computing the lambda statistic
+  lambda <- lambda_statistic(df1, df2, D, weights, law_sojourn)
   
   # if (!is.finite(lambda) || lambda < 0) return(NA)
   
