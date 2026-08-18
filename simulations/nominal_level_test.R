@@ -1,10 +1,10 @@
 library(doParallel)
 library(foreach)
 
-run_simulation <- function(cl, D, n1, n2, M, nb_datasets=500, 
+run_simulation <- function(cl, D, n1, n2, T_max, nb_datasets=500, 
                            law_sojourn= 'exponential'){
   
-  clusterExport(cl, varlist = c("D", "n1", "n2", "M", "law_sojourn"),
+  clusterExport(cl, varlist = c("D", "n1", "n2", "T_max", "law_sojourn"),
                 envir = environment())
   
   results <- foreach(
@@ -13,20 +13,20 @@ run_simulation <- function(cl, D, n1, n2, M, nb_datasets=500,
     ) %dopar% {  
     
     theta <- generate_theta(D, law_sojourn)
-    df <- generate_dataset_H0(theta, law_sojourn, n1, n2, M)
+    df <- generate_dataset_H0(theta, law_sojourn, n1, n2, T_max)
     
     df1 <- subset(df, id<=n1)
     df2 <- subset(df, id>n1)
     
     p_asymp  <- likelihood_ratio_test(df1, df2, D, law_sojourn = law_sojourn)
-    p_boot <- parametric_bootstrap(df1, df2, D, law_sojourn = law_sojourn, M=M)
+    p_boot <- parametric_bootstrap(df1, df2, D, law_sojourn = law_sojourn, T_max=T_max)
     p_perm <- permutation_test(df1, df2, D, law_sojourn = law_sojourn)
     
     c(p_asymp=p_asymp, p_boot=p_boot, p_perm=p_perm)
   }
   
   list(
-    D = D, n1 = n1, n2 = n2, M = M,
+    D = D, n1 = n1, n2 = n2, T_max = T_max,
     nb_datasets = nb_datasets,
     p_asymp = results[, "p_asymp"],
     p_boot = results[, "p_boot"],
@@ -64,7 +64,7 @@ clusterEvalQ(cl, {
   source('src/two_samples_test.R')
 })
 
-res <- run_simulation(cl, D = 10, n1 = 60, n2 = 60, M = 5, nb_datasets = 500)
+res <- run_simulation(cl, D = 10, n1 = 60, n2 = 60, T_max = 5, nb_datasets = 500)
 plot_pvalues(res)
 
 stopCluster(cl)
