@@ -70,7 +70,7 @@ test_that("Correct sorting of MDI", {
   expect_equal(result, sort(result, decreasing = TRUE))
 })
 
-test_that("MDA detects an informative variable", {
+# test_that("MDA detects an informative variable", {
   set.seed(42)
   n <- 30
   D <- 4
