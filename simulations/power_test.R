@@ -1,10 +1,10 @@
 library(doParallel)
 library(foreach)
 
-run_simulation <- function(cl, D, n, M, nb_datasets=500, nb_steps=20,
+run_simulation <- function(cl, D, n, T_max, nb_datasets=500, nb_steps=20,
                            var_parameter, law_sojourn= 'exponential'){
   
-  clusterExport(cl, varlist = c("D", "n", "M", "nb_steps", 
+  clusterExport(cl, varlist = c("D", "n", "T_max", "nb_steps", 
                                 "law_sojourn", "var_parameter"),
                 envir = environment())
   
@@ -12,7 +12,7 @@ run_simulation <- function(cl, D, n, M, nb_datasets=500, nb_steps=20,
     
     # Theta_0 and the associated trajectories
     theta0 <- generate_theta(D, law_sojourn)
-    df0 <- generate_dataset(theta0, law_sojourn, n, M)
+    df0 <- generate_dataset(theta0, law_sojourn, n, T_max)
     
     # Theta_1
     theta1 <- theta0
@@ -38,11 +38,11 @@ run_simulation <- function(cl, D, n, M, nb_datasets=500, nb_steps=20,
         omega = (1-t) * theta0$omega + t * theta1$omega
       )
       
-      df1 <- generate_dataset(theta, law_sojourn, n, M)
+      df1 <- generate_dataset(theta, law_sojourn, n, T_max)
       df1$id <- df1$id + n # To avoid collisions w/ df0
       
       p_asymp[k+1] <- likelihood_ratio_test(df0, df1, D, law_sojourn=law_sojourn)
-      p_boot[k+1] <- parametric_bootstrap(df0, df1, D, law_sojourn=law_sojourn, M=M)
+      p_boot[k+1] <- parametric_bootstrap(df0, df1, D, law_sojourn=law_sojourn, T_max=T_max)
       p_perm[k+1] <- permutation_test(df0, df1, D, law_sojourn=law_sojourn)
       
     }
@@ -50,7 +50,7 @@ run_simulation <- function(cl, D, n, M, nb_datasets=500, nb_steps=20,
   }
   
   list(
-    D = D, n = n, M = M,
+    D = D, n = n, T_max = T_max,
     nb_datasets = nb_datasets,
     nb_steps = nb_steps,
     var_parameter = var_parameter,
@@ -95,11 +95,11 @@ clusterEvalQ(cl, {
   source('src/two_samples_test.R')
 })
 
-res_omega <- run_simulation(cl, D = 4, n = 30, M = 5,
+res_omega <- run_simulation(cl, D = 4, n = 30, T_max = 5,
                       var_parameter = 'omega')
-res_alpha <- run_simulation(cl, D = 4, n = 30, M = 5, 
+res_alpha <- run_simulation(cl, D = 4, n = 30, T_max = 5, 
                             var_parameter = 'alpha')
-res_P <- run_simulation(cl, D = 4, n = 30, M = 5, 
+res_P <- run_simulation(cl, D = 4, n = 30, T_max = 5, 
                         var_parameter = 'P')
-plot_power(res_P)
+plot_power(res_omega)
 stopCluster(cl)
