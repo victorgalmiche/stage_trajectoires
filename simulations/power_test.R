@@ -81,7 +81,7 @@ plot_power <- function(sim_result, title = NULL) {
   legend("topleft",
          legend = c("Chi^2", "Permutation", "Parametric Bootstrap", "Level 0.05"),
          col = c("red", "green", "blue", "grey"),
-         pch = c(1, 0, 2, NA), 
+         pch = c(1, 2, 0, NA), 
          lty = c(NA, NA, NA, 2))
   
 }
