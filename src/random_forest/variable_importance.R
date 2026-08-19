@@ -137,7 +137,7 @@ MDA_new <- function(forest, covariate_name, dataframe, covariates,
 MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
   # Then compute importance for each covariate
   importance <- vapply(names(covariates), function(cov) {
-    MDA_new(forest, cov, dataframe, covariates, D, weights, law_sojourn)
+    MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)
   }, numeric(1))
   
   # And rank them
