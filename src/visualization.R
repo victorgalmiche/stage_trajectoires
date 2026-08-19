@@ -12,12 +12,14 @@ plot_tree <- function(tree, show_pval = TRUE, hgap = 1, vgap = 2,
   
   node_label <- function(noeud) {
     if (noeud$type == "leaf") {
-      return("Leaf")
-    }
-    split <- noeud$split
-    label <- split$var
-    if (show_pval && !is.null(split$pval)) {
-      label <- paste0(label, sprintf("\n(p=%.3g)", split$pval))
+      label <- "Leaf"
+      label <- paste0(label, sprintf("\n n=%.3g", noeud$n))
+    } else {
+      split <- noeud$split
+      label <- split$var
+      if (show_pval && !is.null(split$pval)) {
+        label <- paste0(label, sprintf("\n(p=%.3g)", split$pval))
+      }
     }
     label
   }
@@ -108,12 +110,6 @@ plot_tree <- function(tree, show_pval = TRUE, hgap = 1, vgap = 2,
        edge.arrow.size = 0.4)
 }
 
-
-# 
-# # Visualize the trajectories
-# seq <- seqdef(trajectories, 2:80)
-# par(mfrow = c(2, 2))
-# seqiplot(seq, with.legend=FALSE, border=NA)
 
 
 

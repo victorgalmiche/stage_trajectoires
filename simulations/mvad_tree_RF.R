@@ -35,7 +35,6 @@ data(mvad)
 trajectories_mvad <- mvad[, 17:86] # the trajectories 
 dataframe <- traj_to_df(trajectories_mvad) # the dataframe associated to the trajectories
 covariates <- mvad[, 3:14] # the covariates
-weights <- mvad[, 2] # the weights
 
 # Number of states and sojourn time law
 D <- 6
@@ -43,20 +42,20 @@ law_sojourn <- 'exponential'
 min_leaf <- as.integer(floor(nrow(covariates)/20)) # 5% of the total nb of ind
 
 # Tree construction and visualization
-tree <- build_tree(dataframe, covariates, weights,
-                   D, law_sojourn, likelihood_ratio_test, 
+tree <- build_tree(dataframe, covariates, weights=NULL,
+                   D, law_sojourn, permutation_test, 
                    min_leaf = min_leaf, alpha = 0.05, max_depth = 5)
 plot_tree(tree)
 
 # And a random forest
-rf <- random_forest(dataframe, covariates, weights,
-                    D, law_sojourn, likelihood_ratio_test,
+rf <- random_forest(dataframe, covariates, weights=NULL,
+                    D, law_sojourn, permutation_test,
                     min_leaf = min_leaf, alpha = 0.05)
 
 
 # Evaluating variable importance
 ranking_MDI <- MDI_all(rf, covariates)
-ranking_MDA <- MDA_all(rf, dataframe, covariates, D, weights, law_sojourn)
+ranking_MDA <- MDA_all(rf, dataframe, covariates, D, weights=NULL, law_sojourn)
 
 barplot(ranking_MDI, 
         main = "MDIs of the covariates",

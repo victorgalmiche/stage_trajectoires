@@ -129,7 +129,9 @@ build_tree <- function(dataframe, covariates, weights,
   # Attaining the maximum depth
   if (depth >= max_depth) {
     estimation <- mle_fit(dataframe, D, weights, law_sojourn)
-    return(list(type = "leaf", estimator = estimation$estimator))
+    return(list(type = "leaf", 
+                n = pop_size,
+                estimator = estimation$estimator))
   }
   
   # Random selection of features among the covariates table
@@ -144,7 +146,9 @@ build_tree <- function(dataframe, covariates, weights,
   # No split found
   if (is.null(best$var)) {
     estimation <- mle_fit(dataframe, D, weights, law_sojourn)
-    return(list(type = "leaf", estimator = estimation$estimator))
+    return(list(type = "leaf", 
+                n = pop_size,
+                estimator = estimation$estimator))
   }
     
   # Split and recursively construct the subtree
@@ -166,7 +170,9 @@ build_tree <- function(dataframe, covariates, weights,
   # Split found is not significant
   if (best$pval >= alpha){
     estimation <- mle_fit(dataframe, D, weights, law_sojourn)
-    return(list(type = "leaf", estimator = estimation$estimator))
+    return(list(type = "leaf", 
+                n = pop_size, 
+                estimator = estimation$estimator))
   }
   
   list(

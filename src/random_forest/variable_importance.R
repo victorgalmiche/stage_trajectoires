@@ -81,11 +81,63 @@ MDA <- function(forest, covariate_name, dataframe, covariates,
 }
 
 
+MDA_new <- function(forest, covariate_name, dataframe, covariates, 
+                    D, weights, law_sojourn, 
+                    parallel=TRUE, n_cores=detectCores()-1) {
+  
+  # Organizing the parallelization framework
+  if (parallel) {
+    cl <- makeCluster(n_cores)
+    registerDoParallel(cl)
+    on.exit(stopCluster(cl), add = TRUE)
+    clusterEvalQ(cl, {
+      source('src/random_forest/tree_construction.R')
+    })
+  } else {
+    foreach::registerDoSEQ()
+  }
+  
+  n_trees <- length(forest)
+  decreases <- foreach(
+    i = 1:n_trees,
+    .combine = list,
+    .multicombine = TRUE,
+    .maxcombine = n_trees,
+    .errorhandling = "pass",
+    .export = c(
+      "covariate_name", "dataframe", "covariates", 
+      "weights", "D", "law_sojourn", "oob_score", "forest")
+  ) %dopar% {
+    tree <- forest[[i]]
+    oob_ids <- tree$oob_ids
+    if (length(oob_ids) == 0) return(NA_real_)
+    
+    base_score <- oob_score(tree, oob_ids, dataframe, 
+                            covariates, D, weights, law_sojourn)
+    
+    # Permute the target covariate for OOB observations only
+    covariates_permuted <- covariates
+    covariates_permuted[oob_ids, covariate_name] <- 
+      sample(covariates[oob_ids, covariate_name, drop=TRUE])
+    
+    perm_score <- oob_score(tree, oob_ids, dataframe, 
+                            covariates_permuted, D, weights, law_sojourn)
+    
+    # Positive = permutation hurt = covariate was useful
+    perm_score - base_score
+  }
+  
+  mean(unlist(decreases), na.rm = TRUE)
+}
+
+
+
+
 # Rank all covariates
 MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
   # Then compute importance for each covariate
   importance <- vapply(names(covariates), function(cov) {
-    MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)
+    MDA_new(forest, cov, dataframe, covariates, D, weights, law_sojourn)
   }, numeric(1))
   
   # And rank them
