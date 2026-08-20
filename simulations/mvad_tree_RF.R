@@ -41,19 +41,52 @@ D <- 6
 law_sojourn <- 'exponential'
 min_leaf <- as.integer(floor(nrow(covariates)/20)) # 5% of the total nb of ind
 
-# Tree construction and visualization
+### Tree construction and visualization
 tree <- build_tree(dataframe, covariates, weights=NULL,
                    D, law_sojourn, permutation_test, 
                    min_leaf = min_leaf, alpha = 0.05, max_depth = 5)
 plot_tree(tree)
 
-# And a random forest
+
+### Comparison with discrepancy tree of Studer
+mvad.labels <- c("employment", "further education", "higher education", 
+                 "joblessness", "school", "training")
+mvad.seq <- seqdef(mvad, 17:86, labels = mvad.labels)
+
+# Distance matrix based on OM
+submat <- seqsubm(mvad.seq, method = "TRATE")
+dist.om1 <- seqdist(mvad.seq, method = "OM", indel = 1, sm = submat)
+
+st <- seqtree(mvad.seq ~ male + catholic + Belfast + N.Eastern + 
+                Southern + S.Eastern + Western + Grammar + funemp + 
+                gcse5eq + fmpr + livboth, 
+              data = covariates,
+              R = 100, diss = dist.om1, pval = 0.05)
+
+# Conversion function to transform seqtree object into tree object used for plot
+tree_from_seqtree <- function(seqtree_root) {
+  if (is.null(seqtree_root$kids)){
+    return(list(type='leaf', n=seqtree_root$info$n))
+  } else {
+    left_tree <- tree_from_seqtree(seqtree_root$kids[[1]])
+    right_tree <- tree_from_seqtree(seqtree_root$kids[[2]])
+    split <- list(left_levels=seqtree_root$split$labels[1], 
+                  right_levels=seqtree_root$split$labels[2], 
+                  var=names(covariates)[seqtree_root$split$varindex], 
+                  type='categorical', pval=seqtree_root$split$info$pval)
+    return(list(type='node', n=seqtree_root$info$n, 
+                split=split, left=left_tree, right=right_tree))
+  }
+}
+
+tree_studer <- tree_from_seqtree(st$root)
+plot_tree(tree_studer)
+
+### Random forest and Variable importance
 rf <- random_forest(dataframe, covariates, weights=NULL,
                     D, law_sojourn, permutation_test,
                     min_leaf = min_leaf, alpha = 0.05)
 
-
-# Evaluating variable importance
 ranking_MDI <- MDI_all(rf, covariates)
 ranking_MDA <- MDA_all(rf, dataframe, covariates, D, weights=NULL, law_sojourn)
 
