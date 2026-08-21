@@ -65,7 +65,7 @@ parametric_bootstrap <- function(df1, df2, D,
 
 # Permutation test
 permutation_test <- function(df1, df2, D, 
-                             weights=NULL, law_sojourn='gamma', R=100) {
+                             weights=NULL, law_sojourn='gamma', R=1000) {
   dataframe <- rbind(df1, df2)
   n1 <- length(unique(df1$id))
   n2 <- length(unique(df2$id))

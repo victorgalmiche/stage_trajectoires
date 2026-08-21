@@ -61,7 +61,7 @@ st <- seqtree(mvad.seq ~ male + catholic + Belfast + N.Eastern +
                 Southern + S.Eastern + Western + Grammar + funemp + 
                 gcse5eq + fmpr + livboth, 
               data = covariates,
-              R = 100, diss = dist.om1, pval = 0.05)
+              R = 1000, diss = dist.om1, pval = 0.05)
 
 # Conversion function to transform seqtree object into tree object used for plot
 tree_from_seqtree <- function(seqtree_root) {
