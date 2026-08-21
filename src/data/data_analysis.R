@@ -17,10 +17,12 @@ df_to_traj <- function(dataframe){
 
 # Creating the dataframe of trajectories
 trajectories <- df_to_traj(dataframe)
+
+# Defining the seq object for TraMineR functions
 labels <- c("Self-employed", "Permanent Contract", "Subsidized Contract", 
             "Fixed-term Contract", "Temporary Work", "Job Search", 
             "Inactivity", "Training", "Return to School", "Holidays")
-seq <- seqdef(trajectories, 2:99, weights=weights, labels=labels)
+seq <- seqdef(trajectories, 2:99, labels=labels)
 
 # Printing 10 randomly selected trajectories w/ legend
 par(mfrow = c(1, 2))
@@ -48,7 +50,7 @@ seqdplot(seq, with.legend = FALSE, border = NA,
          xtstep = 12)
 
 # Empirical transition matrix
-P_hat <- mle_P(dataframe, D, weights)
+P_hat <- mle_P(dataframe, D)
 
 # Mean time in each state
 seqmtplot(seq, with.legend=FALSE, weighted = FALSE,
@@ -68,17 +70,20 @@ barplot(table(dataframe$state),
      ylab = 'Number of observations', 
      main = 'Number of observations for each state')
 
-# Computing MLE for sojourn times
-omega_exp <- mle_omega_exponential(dataframe, D, weights)
-omega_gamma <- mle_omega_gamma(dataframe, D, weights)
-omega_weibull <- mle_omega_weibull(dataframe, D, weights)
+
 
 # Fitting of sojourn times for a specific state - Job Search here
 job_search <- dataframe[dataframe$state==6, ]
-weights_js <- weights[job_search$id]
-d <- density(job_search$time, weights =  weights_js/ sum(weights_js))
-plot(d, main = "Sojourn time in Job search (state 6)", 
-     xlab = "Time in months", xlim = c(0, 100))
+
+# Computing MLE for sojourn times
+omega_exp <- mle_omega_exponential(job_search, D)
+omega_gamma <- mle_omega_gamma(job_search, D)
+omega_weibull <- mle_omega_weibull(job_search, D)
+
+
+hist(job_search$time, freq=FALSE, breaks=100,
+     main = "Sojourn time in Job Search (state 6)", 
+     xlab = "Time in months", xlim = c(0, 50), ylim = c(0, 0.3))
 curve(dexp(x, rate = omega_exp[6, 'rate']), 
       add = TRUE, col = "blue", lwd=2)
 curve(dgamma(x, shape = omega_gamma[6, 'shape'], 
@@ -88,7 +93,7 @@ curve(dweibull(x, shape = omega_weibull[6, 'shape'],
                scale = omega_weibull[6, 'scale']), 
       add = TRUE, col = "green", lwd=2)
 legend("topright",
-       legend = c("Empirical Density", "Gamma", "Weibull", "Exponential"),
-       col    = c("black", "red", "green", "blue"),
-       lty    = c(1, 1, 1, 1))
+       legend = c("Gamma", "Weibull", "Exponential"),
+       col    = c("red", "green", "blue"),
+       lty    = c(1, 1, 1))
 

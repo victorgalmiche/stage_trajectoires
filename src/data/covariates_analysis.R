@@ -20,7 +20,7 @@ cat(length(vars_to_exclude), "variables have at least one NA")
 
 
 # Excluding the variables w/ NA and the weights and id
-vars_to_exclude <- c(vars_to_exclude, "IDENT", "pondef")
+vars_to_exclude <- c(vars_to_exclude, "IDENT")
 vars_to_keep <- setdiff(names(individus_clean), vars_to_exclude)
 
 individus_clean <- individus_clean[vars_to_keep]

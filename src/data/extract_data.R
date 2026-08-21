@@ -38,7 +38,7 @@ non_emplois <- aws.s3::s3read_using(
 chosen_vars <- c('PHD', 'CA13', 'CA20_17', 'CA22', 'CA24', 'ETR1', 'OS1', 
                  'OS3', 'PER1', 'Q1', 'Q16', 'Q2', 'Q31', 'Q53_13', 'Q9',
                  'SITMERE', 'SITPERE', 'ZUS')
-individus_clean <- individus[, c('IDENT', 'pondef', chosen_vars)]
+individus_clean <- individus[, c('IDENT', chosen_vars)]
 
 individus_clean <- individus_clean[individus_clean$CA20_17 != 4, ]
 individus_clean <- individus_clean[individus_clean$CA22 != 5, ]
@@ -169,11 +169,6 @@ df_merged <- emplois |> dplyr::select(id, NSEQ, state, time) |>
 group <- cumsum(c(TRUE, diff(as.numeric(interaction(df_merged$id, df_merged$state)))!=0))
 dataframe <- aggregate(time ~ group + id + state, data = cbind(df_merged, group), sum)
 dataframe <- dataframe[order(dataframe$group), c("id", "state", "time")]
-
-
-
-### WEIGHTS and others ###
-weights <- individus_clean$pondef
 
 # Number of states
 D <- 10
