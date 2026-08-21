@@ -1,6 +1,7 @@
 library(igraph)
 
-plot_tree <- function(tree, show_pval = TRUE, hgap = 1, vgap = 2,
+plot_tree <- function(tree, show_pval = TRUE, show_lambda = FALSE,
+                      hgap = 1, vgap = 2,
                       vertex_size = 100, vertex_size2 = 150) {
   
   edges <- character(0)
@@ -13,12 +14,15 @@ plot_tree <- function(tree, show_pval = TRUE, hgap = 1, vgap = 2,
   node_label <- function(noeud) {
     if (noeud$type == "leaf") {
       label <- "Leaf"
-      label <- paste0(label, sprintf("\n n=%.3g", noeud$n))
+      label <- paste0(label, sprintf("\n n=%d", noeud$n))
     } else {
       split <- noeud$split
       label <- split$var
       if (show_pval && !is.null(split$pval)) {
         label <- paste0(label, sprintf("\n(p=%.3g)", split$pval))
+      }
+      if (show_lambda) {
+        label <- paste0(label, sprintf("\n(\u03bb=%d)", as.integer(split$lambda)))
       }
     }
     label

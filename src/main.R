@@ -5,7 +5,6 @@ source('src/semi_markov/synthesis_data_generation.R')
 source('src/semi_markov/mle_estimation.R')
 
 source('src/two_samples_test.R')
-source('src/visualization.R')
 
 source('src/random_forest/tree_construction.R')
 source('src/random_forest/random_forest.R')
@@ -18,11 +17,12 @@ law_sojourn <- 'exponential'
 
 # Tree construction
 system.time({
-  min_leaf <- as.integer(floor(length(unique(dataframe$id))/20)) # 5% of the total nb of ind
-  tree <- build_tree(dataframe, covariates, weights, 
-                     D, law_sojourn, likelihood_ratio_test, 
-                     min_leaf = min_leaf, alpha = 0.05, max_depth = 5)
+  tree <- build_tree(dataframe, covariates, weights=NULL, 
+                     D, law_sojourn, permutation_test, 
+                     min_leaf = 100, alpha = 0.05, max_depth = 5)
 })
+plot_tree(tree)
+
 
 # RF construction
 system.time({
