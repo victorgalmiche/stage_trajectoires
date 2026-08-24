@@ -56,8 +56,6 @@ oob_score <- function(tree, oob_ids, dataframe, covariates,
 
 MDA <- function(forest, covariate_name, dataframe, covariates, 
                 D, weights, law_sojourn) {
-  all_ids <- unique(dataframe$id)
-  
   decreases <- vapply(forest, function(tree) {
     oob_ids <- tree$oob_ids
     if (length(oob_ids) == 0) return(NA_real_)
@@ -66,6 +64,7 @@ MDA <- function(forest, covariate_name, dataframe, covariates,
                             covariates, D, weights, law_sojourn)
     
     # Permute the target covariate for OOB observations only
+    # WARNING - if legnth(oob_ids)=1, there will be a problem
     covariates_permuted <- covariates
     covariates_permuted[oob_ids, covariate_name] <- 
       sample(covariates[oob_ids, covariate_name, drop=TRUE])
@@ -81,34 +80,14 @@ MDA <- function(forest, covariate_name, dataframe, covariates,
 }
 
 
-MDA_new <- function(forest, covariate_name, dataframe, covariates, 
-                    D, weights, law_sojourn, 
-                    parallel=TRUE, n_cores=detectCores()-1) {
+MDA_parallelized <- function(cl, forest, covariate_name, dataframe, covariates,
+                             D, weights, law_sojourn) {
   
-  # Organizing the parallelization framework
-  if (parallel) {
-    cl <- makeCluster(n_cores)
-    registerDoParallel(cl)
-    on.exit(stopCluster(cl), add = TRUE)
-    clusterEvalQ(cl, {
-      source('src/random_forest/tree_construction.R')
-    })
-  } else {
-    foreach::registerDoSEQ()
-  }
-  
-  n_trees <- length(forest)
   decreases <- foreach(
-    i = 1:n_trees,
-    .combine = list,
-    .multicombine = TRUE,
-    .maxcombine = n_trees,
-    .errorhandling = "pass",
-    .export = c(
-      "covariate_name", "dataframe", "covariates", 
-      "weights", "D", "law_sojourn", "oob_score", "forest")
+    tree = forest, 
+    .combine = c,
+    .export = "covariate_name"
   ) %dopar% {
-    tree <- forest[[i]]
     oob_ids <- tree$oob_ids
     if (length(oob_ids) == 0) return(NA_real_)
     
@@ -116,6 +95,7 @@ MDA_new <- function(forest, covariate_name, dataframe, covariates,
                             covariates, D, weights, law_sojourn)
     
     # Permute the target covariate for OOB observations only
+    # WARNING - if legnth(oob_ids)=1, there will be a problem
     covariates_permuted <- covariates
     covariates_permuted[oob_ids, covariate_name] <- 
       sample(covariates[oob_ids, covariate_name, drop=TRUE])
@@ -127,19 +107,38 @@ MDA_new <- function(forest, covariate_name, dataframe, covariates,
     perm_score - base_score
   }
   
-  mean(unlist(decreases), na.rm = TRUE)
+  mean(decreases, na.rm=TRUE)
 }
 
-
-
-
 # Rank all covariates
-MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn) {
-  # Then compute importance for each covariate
-  importance <- vapply(names(covariates), function(cov) {
-    MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)
-  }, numeric(1))
+MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn, 
+                    parallel = TRUE, n_cores = detectCores()-1) {
+
+  # Organizing the parallelization framework
+  if (parallel) {
+    cl <- makeCluster(n_cores)
+    registerDoParallel(cl)
+    on.exit(stopCluster(cl), add = TRUE)
+    clusterEvalQ(cl, {
+      source('src/random_forest/tree_construction.R') # For neg_log_lik
+      source('src/semi_markov/mle_estimarion.R') # For likelihood functions
+    })
+    clusterExport(cl, varlist=c("forest", "dataframe", "covariates", 
+                                "D", "weights", "law_sojourn", 
+                                "oob_score"), 
+                  envir=environment())
+    
+    importance <- vapply(names(covariates), function(cov) {
+      MDA_parallelized(cl, forest, cov, dataframe, covariates, 
+                       D, weights, law_sojourn)
+    }, numeric(1))
+  } else {
+    importance <- vapply(names(covariates), function(cov) {
+      MDA(forest, cov, dataframe, covariates, D, weights, law_sojourn)
+    }, numeric(1))
+  }
   
   # And rank them
   sort(importance, decreasing = TRUE)
 }
+
