@@ -38,9 +38,9 @@ make_leaf <- function(D=3, law_sojourn="exponential"){
   list(type = 'leaf', estimator = generate_theta(D, law_sojourn))
 }
 
-make_node <- function(n, pval, var, left, right){
+make_node <- function(n, lambda, var, left, right){
   list(type = 'node', n = n, 
-       split = list(pval = pval, var = var), 
+       split = list(lambda = lambda, var = var), 
        left = left, 
        right = right)
 }
