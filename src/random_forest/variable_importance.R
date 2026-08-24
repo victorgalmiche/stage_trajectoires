@@ -1,12 +1,12 @@
 ### MDI
-# We begin by using 1-pvalue as a proxy for the impurity
+# We use lambda as a measure for the decrease in impurity
 MDI_tree <- function(node, covariate_name, n_root) {
   if (node$type == 'leaf') {
     return(0)
   }
   
   node_contribution <- if (node$split$var == covariate_name){
-    (node$n/n_root)*(1-node$split$pval)
+    (node$n/n_root)*node$split$lambda
   } else {
     0
   }
