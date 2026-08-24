@@ -124,7 +124,7 @@ MDA_all <- function(forest, dataframe, covariates, D, weights, law_sojourn,
     on.exit(stopCluster(cl), add = TRUE)
     clusterEvalQ(cl, {
       source('src/random_forest/tree_construction.R') # For neg_log_lik
-      source('src/semi_markov/mle_estimarion.R') # For likelihood functions
+      source('src/semi_markov/mle_estimation.R') # For likelihood functions
     })
     clusterExport(cl, varlist=c("forest", "dataframe", "covariates", 
                                 "D", "weights", "law_sojourn", 

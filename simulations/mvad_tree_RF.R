@@ -88,11 +88,13 @@ rf <- random_forest(dataframe, covariates, weights=NULL,
                     min_leaf = min_leaf, alpha = 0.05)
 
 ranking_MDI <- MDI_all(rf, covariates)
-ranking_MDA <- MDA_all(rf, dataframe, covariates, D, weights=NULL, law_sojourn)
+ranking_MDA <- MDA_all(rf, dataframe, covariates, 
+                       D, weights=NULL, law_sojourn, 
+                       parallel = TRUE)
 
 barplot(ranking_MDI, 
         main = "MDIs of the covariates",
-        ylab = "MDI", ylim = c(0, 1),
+        ylab = "MDI", 
         col = "blue", 
         las = 2)
 
