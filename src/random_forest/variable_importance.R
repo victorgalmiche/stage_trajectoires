@@ -1,3 +1,6 @@
+library(doParallel)
+library(foreach)
+
 ### MDI
 # We use lambda as a measure for the decrease in impurity
 MDI_tree <- function(node, covariate_name, n_root) {
