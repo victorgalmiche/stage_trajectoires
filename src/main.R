@@ -28,8 +28,8 @@ plot_tree(tree)
 system.time({
   forest <- random_forest(dataframe, covariates, weights=NULL, 
                           D, law_sojourn, permutation_test, 
-                          min_leaf = 100, alpha = 0.05)
-  saveRDS(forest, file = "forest_temp.rds")
+                          min_leaf = 100, alpha = 0.05, 
+                          n_cores = 100)
 })
 
 # MDI
@@ -38,9 +38,8 @@ system.time({
 })
 
 barplot(ranking_MDI, 
-        main = "Mean Decrease Impurity for each covariate",
+        main = "Mean Decrease Impurity",
         ylab = "MDI", 
-        ylim = c(0,1),
         col = "blue", 
         las = 2)
 
@@ -48,11 +47,12 @@ barplot(ranking_MDI,
 # MDA
 system.time({
   ranking_MDA <- MDA_all(forest, dataframe, covariates, 
-                         D, weights, law_sojourn)
+                         D, weights=NULL, law_sojourn, 
+                         parallel = TRUE, n_cores = 100)
 })
 
 barplot(ranking_MDA, 
-        main = "Mean Decrease Acurracy for each covariate",
+        main = "Mean Decrease Acurracy",
         ylab = "MDA",
         col = "blue", 
         las = 2)
