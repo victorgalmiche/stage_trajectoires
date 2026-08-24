@@ -26,9 +26,10 @@ plot_tree(tree)
 
 # RF construction
 system.time({
-  forest <- random_forest(dataframe, covariates, weights, 
-                          D, law_sojourn, likelihood_ratio_test, 
-                          min_leaf = min_leaf, alpha = 0.05)
+  forest <- random_forest(dataframe, covariates, weights=NULL, 
+                          D, law_sojourn, permutation_test, 
+                          min_leaf = 100, alpha = 0.05)
+  saveRDS(forest, file = "forest_temp.rds")
 })
 
 # MDI
