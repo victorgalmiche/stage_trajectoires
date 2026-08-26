@@ -6,7 +6,7 @@ Report available at: https://www.overleaf.com/read/kspwhnrtcdtg#9d5b53
 
 This repository contains the implementation of a semi-Markov trajectory model with tree-based feature selection and random-forest variable importance.
 
-For a structured overview of the project architecture, data model, and main functions, see [docs/code_overview.md](docs/code_overview.md).
+For a structured overview of the project architecture, data model, and main functions, see [doc/code_overview.md](doc/code_overview.md).
 
 ## Repository structure
 
@@ -24,5 +24,5 @@ For a structured overview of the project architecture, data model, and main func
 3. Compare groups using the likelihood-ratio or permutation-based tests.
 4. Build and analyze trees or random forests to identify important covariates.
 
-See [docs/code_overview.md](docs/code_overview.md) for the detailed code map and reading order.
+See [doc/code_overview.md](doc/code_overview.md) for the detailed code map and reading order.
 
