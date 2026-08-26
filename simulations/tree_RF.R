@@ -1,3 +1,5 @@
+# Simulated data
+
 source('src/semi_markov/synthesis_data_generation.R')
 source('src/semi_markov/mle_estimation.R')
 source('src/two_samples_test.R')
@@ -14,26 +16,30 @@ theta1 <- generate_theta(D, law_sojourn)
 theta2 <- generate_theta(D, law_sojourn)
 theta3 <- generate_theta(D, law_sojourn)
 
-df1 <- generate_dataset(theta1, law_sojourn, n = 50, M = 5)
-df2 <- generate_dataset(theta2, law_sojourn, n = 30, M = 5)
+df1 <- generate_dataset(theta1, law_sojourn, n = 50, T_max = 5)
+df2 <- generate_dataset(theta2, law_sojourn, n = 30, T_max = 5)
 df2$id <- df2$id + 50
-df3 <- generate_dataset(theta3, law_sojourn, n = 20, M = 5)
+df3 <- generate_dataset(theta3, law_sojourn, n = 20, T_max = 5)
 df3$id <- df3$id + 80
 
 dataframe <- rbind(df1, df2, df3)
 
 covariates <- data.frame(X1 = rep(c(1, 2), times=c(50, 50)), 
                          X2 = rep(c(1, 2), times=c(80, 20)),
-                         X3 = rnorm(100))
-weights <- rep(1, 100)
+                         X3 = rep(c(1, 2), times=c(50, 50)),
+                         X4 = rep(c(1, 2, 3), times=c(50, 30, 20)),
+                         X5 = sample.int(2, size=100, replace=TRUE), 
+                         X6 = sample.int(2, size=100, replace=TRUE))
 
-tree <- build_tree(dataframe, covariates, weights, 
-                   D, law_sojourn, likelihood_ratio_test, 
+tree <- build_tree(dataframe, covariates, weights=NULL, 
+                   D, law_sojourn, permutation_test, 
                    min_leaf = 5, alpha = 0.05)
-plot_tree(tree)
 
-random_forest <- random_forest(dataframe, covariates, weights, 
-                               D, law_sojourn, likelihood_ratio_test)
+plot_tree(tree, show_lambda = TRUE)
 
-mdi <- MDI_all(random_forest, covariates)
-mda <- MDA_all(random_forest, dataframe, covariates, D, weights, law_sojourn)
+forest <- random_forest(dataframe, covariates, weights=NULL, 
+                               D, law_sojourn, permutation_test)
+
+mdi <- MDI_all(forest, covariates)
+mda <- MDA_all(forest, dataframe, covariates, 
+               D, weights=NULL, law_sojourn, parallel=FALSE)
